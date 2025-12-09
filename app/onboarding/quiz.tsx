@@ -47,7 +47,7 @@ export default function QuizScreen() {
   };
 
   const calculateScores = (): PersonalityScores => {
-    const scores: PersonalityScores = {
+    const rawScores: PersonalityScores = {
       creative: 0,
       analytical: 0,
       logical: 0,
@@ -57,34 +57,47 @@ export default function QuizScreen() {
       leadership: 0,
     };
 
-    const categoryWeights: Record<keyof PersonalityScores, number[]> = {
-      creative: [0, 3, 2, 1],
-      analytical: [1, 0, 2, 3],
-      logical: [3, 1, 0, 2],
-      literacy: [2, 1, 3, 0],
-      communication: [2, 0, 3, 1],
-      problemSolving: [2, 3, 1, 0],
-      leadership: [1, 2, 0, 3],
+    const categoryCount: Record<keyof PersonalityScores, number> = {
+      creative: 0,
+      analytical: 0,
+      logical: 0,
+      literacy: 0,
+      communication: 0,
+      problemSolving: 0,
+      leadership: 0,
     };
 
     quizQuestions.forEach(q => {
       const answerIndex = answers[q.id];
       if (answerIndex !== undefined) {
-        const weights = categoryWeights[q.category];
-        scores[q.category] += weights[answerIndex];
+        rawScores[q.category] += answerIndex;
+        categoryCount[q.category] += 1;
       }
     });
 
-    const maxScore = Math.max(...Object.values(scores));
-    const minScore = Math.min(...Object.values(scores));
-    const range = maxScore - minScore || 1;
+    const normalizedScores: PersonalityScores = {
+      creative: 0,
+      analytical: 0,
+      logical: 0,
+      literacy: 0,
+      communication: 0,
+      problemSolving: 0,
+      leadership: 0,
+    };
 
-    Object.keys(scores).forEach(key => {
+    Object.keys(rawScores).forEach(key => {
       const k = key as keyof PersonalityScores;
-      scores[k] = Math.round(((scores[k] - minScore) / range) * 100);
+      const count = categoryCount[k];
+      if (count > 0) {
+        const avgScore = rawScores[k] / count;
+        const normalizedValue = (avgScore / 3) * 100;
+        normalizedScores[k] = Math.round(normalizedValue * 0.8 + 10);
+      } else {
+        normalizedScores[k] = 50;
+      }
     });
 
-    return scores;
+    return normalizedScores;
   };
 
   const handleSubmit = async () => {

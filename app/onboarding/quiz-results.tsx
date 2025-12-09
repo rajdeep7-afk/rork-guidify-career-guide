@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle, Line, Polygon } from 'react-native-svg';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
@@ -95,9 +96,9 @@ Provide only the career name, nothing else. Examples: "Software Engineer", "Data
     { key: 'creative', label: 'Creative', color: '#F59E0B' },
     { key: 'analytical', label: 'Analytical', color: '#8B5CF6' },
     { key: 'logical', label: 'Logical', color: '#3B82F6' },
-    { key: 'literacy', label: 'Literacy', color: '#10B981' },
     { key: 'communication', label: 'Communication', color: '#EC4899' },
     { key: 'problemSolving', label: 'Problem Solving', color: '#06B6D4' },
+    { key: 'leadership', label: 'Leadership', color: '#EF4444' },
   ];
 
   const topStrength = categories.reduce((max, cat) =>
@@ -132,29 +133,16 @@ Provide only the career name, nothing else. Examples: "Software Engineer", "Data
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personality Analysis</Text>
-          <View style={styles.barsContainer}>
-            {categories.map((cat, index) => {
-              const score = scores[cat.key as keyof typeof scores];
-              const barWidth = animationValue.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', `${score}%`],
-              });
-
-              return (
-                <View key={cat.key} style={styles.barRow}>
-                  <Text style={styles.barLabel}>{cat.label}</Text>
-                  <View style={styles.barContainer}>
-                    <Animated.View
-                      style={[
-                        styles.bar,
-                        { width: barWidth, backgroundColor: cat.color },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.barValue}>{score}%</Text>
-                </View>
-              );
-            })}
+          <RadarChart categories={categories} scores={scores} animationValue={animationValue} />
+          
+          <View style={styles.legendContainer}>
+            {categories.map((cat) => (
+              <View key={cat.key} style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
+                <Text style={styles.legendLabel}>{cat.label}</Text>
+                <Text style={styles.legendValue}>{scores[cat.key as keyof typeof scores]}%</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -185,6 +173,104 @@ Provide only the career name, nothing else. Examples: "Software Engineer", "Data
           <Text style={styles.continueButtonText}>Continue to Dashboard</Text>
         </Pressable>
       </ScrollView>
+    </View>
+  );
+}
+
+interface RadarChartProps {
+  categories: { key: string; label: string; color: string }[];
+  scores: {
+    creative: number;
+    analytical: number;
+    logical: number;
+    literacy: number;
+    communication: number;
+    problemSolving: number;
+    leadership: number;
+  };
+  animationValue: Animated.Value;
+}
+
+function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
+  const size = 280;
+  const center = size / 2;
+  const radius = size / 2 - 40;
+  const numSides = categories.length;
+
+  const getPoint = (index: number, value: number) => {
+    const angle = (Math.PI * 2 * index) / numSides - Math.PI / 2;
+    const distance = (value / 100) * radius;
+    return {
+      x: center + distance * Math.cos(angle),
+      y: center + distance * Math.sin(angle),
+    };
+  };
+
+
+
+  const dataPoints = categories.map((cat, i) => {
+    const score = scores[cat.key as keyof typeof scores];
+    return getPoint(i, score);
+  });
+
+  const polygonPoints = dataPoints.map(p => `${p.x},${p.y}`).join(' ');
+
+  const gridLevels = [20, 40, 60, 80, 100];
+
+  return (
+    <View style={styles.radarContainer}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {gridLevels.map((level, i) => {
+          const gridPoints = categories.map((_, index) => getPoint(index, level));
+          const gridPolygon = gridPoints.map(p => `${p.x},${p.y}`).join(' ');
+          return (
+            <Polygon
+              key={level}
+              points={gridPolygon}
+              fill="none"
+              stroke={Colors.border}
+              strokeWidth="1"
+              opacity={0.3}
+            />
+          );
+        })}
+
+        {categories.map((_, index) => {
+          const point = getPoint(index, 100);
+          return (
+            <Line
+              key={index}
+              x1={center}
+              y1={center}
+              x2={point.x}
+              y2={point.y}
+              stroke={Colors.border}
+              strokeWidth="1"
+              opacity={0.3}
+            />
+          );
+        })}
+
+        <Polygon
+          points={polygonPoints}
+          fill={Colors.primary}
+          fillOpacity={0.3}
+          stroke={Colors.primary}
+          strokeWidth="3"
+        />
+
+        {dataPoints.map((point, i) => (
+          <Circle
+            key={i}
+            cx={point.x}
+            cy={point.y}
+            r="5"
+            fill={categories[i].color}
+            stroke={Colors.white}
+            strokeWidth="2"
+          />
+        ))}
+      </Svg>
     </View>
   );
 }
@@ -272,38 +358,43 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: Colors.text,
     marginBottom: 20,
+    textAlign: 'center',
   },
-  barsContainer: {
-    gap: 16,
+  radarContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    marginBottom: 20,
   },
-  barRow: {
+  legendContainer: {
+    gap: 12,
+  },
+  legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
   },
-  barLabel: {
-    fontSize: 13,
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  legendLabel: {
+    flex: 1,
+    fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.text,
-    width: 90,
   },
-  barContainer: {
-    flex: 1,
-    height: 12,
-    backgroundColor: Colors.surfaceLight,
-    borderRadius: 6,
-    marginHorizontal: 12,
-    overflow: 'hidden',
-  },
-  bar: {
-    height: '100%',
-    borderRadius: 6,
-  },
-  barValue: {
-    fontSize: 13,
+  legendValue: {
+    fontSize: 14,
     fontWeight: '700' as const,
-    color: Colors.text,
-    width: 40,
-    textAlign: 'right',
+    color: Colors.primary,
   },
   loadingCard: {
     backgroundColor: Colors.surface,
