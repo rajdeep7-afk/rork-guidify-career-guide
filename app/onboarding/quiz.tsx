@@ -16,10 +16,10 @@ const RESPONSIVE_FONT_SIZE = SCREEN_WIDTH < 350 ? 20 : SCREEN_WIDTH < 380 ? 22 :
 const RESPONSIVE_LINE_HEIGHT = RESPONSIVE_FONT_SIZE * 1.4;
 
 const SWIPE_DIRECTIONS = {
-  RIGHT: { value: 3, emoji: '😀', color: '#10b981' },
-  LEFT: { value: 0, emoji: '😒', color: '#ef4444' },
-  UP: { value: 2, emoji: '😍', color: '#3b82f6' },
-  DOWN: { value: 1, emoji: '😭', color: '#9333ea' },
+  RIGHT: { value: 1, emoji: '😀', label: 'Agree', color: '#10b981' },
+  LEFT: { value: -1, emoji: '😒', label: 'Disagree', color: '#ef4444' },
+  UP: { value: 2, emoji: '😍', label: 'Strongly Agree', color: '#3b82f6' },
+  DOWN: { value: -2, emoji: '😭', label: 'Strongly Disagree', color: '#9333ea' },
 };
 
 export default function QuizScreen() {
@@ -32,13 +32,14 @@ export default function QuizScreen() {
 
   const handleAnswer = (value: number) => {
     const questionId = quizQuestions[currentQuestion].id;
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
+    const updatedAnswers = { ...answers, [questionId]: value };
+    setAnswers(updatedAnswers);
 
     setTimeout(() => {
       if (currentQuestion < quizQuestions.length - 1) {
         setCurrentQuestion(prev => prev + 1);
       } else {
-        handleSubmit();
+        handleSubmit(updatedAnswers);
       }
     }, 300);
   };
@@ -49,7 +50,8 @@ export default function QuizScreen() {
     }
   };
 
-  const calculateScores = (): PersonalityScores => {
+  const calculateScores = (answersToUse?: Record<string, number>): PersonalityScores => {
+    const finalAnswers = answersToUse || answers;
     const rawScores: PersonalityScores = {
       creative: 0,
       analytical: 0,
@@ -71,9 +73,9 @@ export default function QuizScreen() {
     };
 
     quizQuestions.forEach(q => {
-      const answerIndex = answers[q.id];
-      if (answerIndex !== undefined) {
-        rawScores[q.category] += answerIndex;
+      const answerValue = finalAnswers[q.id];
+      if (answerValue !== undefined) {
+        rawScores[q.category] += answerValue;
         categoryCount[q.category] += 1;
       }
     });
@@ -93,8 +95,8 @@ export default function QuizScreen() {
       const count = categoryCount[k];
       if (count > 0) {
         const avgScore = rawScores[k] / count;
-        const normalizedValue = (avgScore / 3) * 100;
-        normalizedScores[k] = Math.round(normalizedValue * 0.8 + 10);
+        const normalizedValue = ((avgScore + 2) / 4) * 100;
+        normalizedScores[k] = Math.max(0, Math.min(100, Math.round(normalizedValue)));
       } else {
         normalizedScores[k] = 50;
       }
@@ -103,8 +105,9 @@ export default function QuizScreen() {
     return normalizedScores;
   };
 
-  const handleSubmit = async () => {
-    const answeredCount = Object.keys(answers).length;
+  const handleSubmit = async (finalAnswers?: Record<string, number>) => {
+    const answersToCheck = finalAnswers || answers;
+    const answeredCount = Object.keys(answersToCheck).length;
     if (answeredCount < quizQuestions.length) {
       Alert.alert(
         'Incomplete Quiz',
@@ -113,7 +116,7 @@ export default function QuizScreen() {
       return;
     }
 
-    const scores = calculateScores();
+    const scores = calculateScores(answersToCheck);
     
     await updateProfile({
       personalityScores: scores,

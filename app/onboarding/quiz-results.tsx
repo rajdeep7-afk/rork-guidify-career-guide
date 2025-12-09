@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle, Line, Polygon } from 'react-native-svg';
+import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
@@ -142,16 +142,6 @@ Return ONLY the career title, nothing else.`;
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personality Analysis</Text>
           <RadarChart categories={categories} scores={scores} animationValue={animationValue} />
-          
-          <View style={styles.legendContainer}>
-            {categories.map((cat) => (
-              <View key={cat.key} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
-                <Text style={styles.legendLabel}>{cat.label}</Text>
-                <Text style={styles.legendValue}>{scores[cat.key as keyof typeof scores]}%</Text>
-              </View>
-            ))}
-          </View>
         </View>
 
         {careerMutation.isPending && (
@@ -200,9 +190,9 @@ interface RadarChartProps {
 }
 
 function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
-  const size = 280;
+  const size = 340;
   const center = size / 2;
-  const radius = size / 2 - 40;
+  const radius = size / 2 - 70;
   const numSides = categories.length;
 
   const getPoint = (index: number, value: number) => {
@@ -214,7 +204,14 @@ function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
     };
   };
 
-
+  const getLabelPoint = (index: number) => {
+    const angle = (Math.PI * 2 * index) / numSides - Math.PI / 2;
+    const distance = radius + 45;
+    return {
+      x: center + distance * Math.cos(angle),
+      y: center + distance * Math.sin(angle),
+    };
+  };
 
   const dataPoints = categories.map((cat, i) => {
     const score = scores[cat.key as keyof typeof scores];
@@ -228,7 +225,7 @@ function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
   return (
     <View style={styles.radarContainer}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {gridLevels.map((level, i) => {
+        {gridLevels.map((level) => {
           const gridPoints = categories.map((_, index) => getPoint(index, level));
           const gridPolygon = gridPoints.map(p => `${p.x},${p.y}`).join(' ');
           return (
@@ -236,9 +233,8 @@ function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
               key={level}
               points={gridPolygon}
               fill="none"
-              stroke={Colors.border}
+              stroke="rgba(255, 255, 255, 0.2)"
               strokeWidth="1"
-              opacity={0.3}
             />
           );
         })}
@@ -252,18 +248,17 @@ function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
               y1={center}
               x2={point.x}
               y2={point.y}
-              stroke={Colors.border}
+              stroke="rgba(255, 255, 255, 0.2)"
               strokeWidth="1"
-              opacity={0.3}
             />
           );
         })}
 
         <Polygon
           points={polygonPoints}
-          fill={Colors.primary}
+          fill="#10b981"
           fillOpacity={0.3}
-          stroke={Colors.primary}
+          stroke="#10b981"
           strokeWidth="3"
         />
 
@@ -273,11 +268,42 @@ function RadarChart({ categories, scores, animationValue }: RadarChartProps) {
             cx={point.x}
             cy={point.y}
             r="5"
-            fill={categories[i].color}
-            stroke={Colors.white}
+            fill="#10b981"
+            stroke="#ffffff"
             strokeWidth="2"
           />
         ))}
+
+        {categories.map((cat, i) => {
+          const labelPos = getLabelPoint(i);
+          const score = scores[cat.key as keyof typeof scores];
+          return (
+            <React.Fragment key={cat.key}>
+              <SvgText
+                x={labelPos.x}
+                y={labelPos.y - 8}
+                fill="#ffffff"
+                fontSize="11"
+                fontWeight="600"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {cat.label}
+              </SvgText>
+              <SvgText
+                x={labelPos.x}
+                y={labelPos.y + 10}
+                fill="#ffffff"
+                fontSize="15"
+                fontWeight="700"
+                textAnchor="middle"
+                alignmentBaseline="middle"
+              >
+                {score}%
+              </SvgText>
+            </React.Fragment>
+          );
+        })}
       </Svg>
     </View>
   );
@@ -371,39 +397,12 @@ const styles = StyleSheet.create({
   radarContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
-    backgroundColor: Colors.surface,
+    paddingVertical: 30,
+    backgroundColor: '#1e40af',
     borderRadius: 20,
     marginBottom: 20,
   },
-  legendContainer: {
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  legendLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.text,
-  },
-  legendValue: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: Colors.primary,
-  },
+
   loadingCard: {
     backgroundColor: Colors.surface,
     borderRadius: 20,
