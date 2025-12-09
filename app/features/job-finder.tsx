@@ -89,9 +89,7 @@ export default function JobFinderScreen() {
       console.log('[Job Finder] Resume parsed successfully:', data);
       
       if (profileType === 'fresher') {
-        const profile: FresherProfile = {
-          type: 'fresher',
-          resumeText: resumeFile!.text,
+        const profile = {
           skills: data.skills || [],
           summary: data.summary || '',
           cgpa: data.cgpa || null,
@@ -100,13 +98,9 @@ export default function JobFinderScreen() {
           preferred_location: data.preferred_location || '',
         };
         setFresherData(profile);
-        
-        console.log('[Job Finder] Auto-submitting fresher profile for job recommendations');
-        jobRecommendMutation.mutate(profile);
+        console.log('[Job Finder] Fresher data populated from resume');
       } else {
-        const profile: ExperiencedProfile = {
-          type: 'experienced',
-          resumeText: resumeFile!.text,
+        const profile = {
           skills: data.skills || [],
           summary: data.summary || '',
           previous_company: data.previous_company || '',
@@ -116,18 +110,29 @@ export default function JobFinderScreen() {
           preferred_location: data.preferred_location || '',
         };
         setExperiencedData(profile);
-        
-        console.log('[Job Finder] Auto-submitting experienced profile for job recommendations');
-        jobRecommendMutation.mutate(profile);
+        console.log('[Job Finder] Experienced data populated from resume');
       }
       
       setIsParsingResume(false);
+      setStep('profile');
+      
+      Alert.alert(
+        'Resume Parsed', 
+        'Please review and complete your profile information before getting job recommendations.',
+        [{ text: 'OK' }]
+      );
     },
     onError: (error) => {
       console.error('[Job Finder] Resume parsing error:', error);
       setIsParsingResume(false);
-      Alert.alert('Error', 'Failed to parse resume. Please try again.');
-      setStep('type');
+      Alert.alert(
+        'Parsing Failed', 
+        'Could not extract information from the resume. Please enter your details manually.',
+        [{
+          text: 'OK',
+          onPress: () => setStep('profile'),
+        }]
+      );
     },
   });
 

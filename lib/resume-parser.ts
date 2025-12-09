@@ -6,46 +6,49 @@ export async function extractTextFromFile(uri: string, filename: string): Promis
 
     if (filename.toLowerCase().endsWith('.txt')) {
       const content = await FileSystem.readAsStringAsync(uri);
-      console.log('[Resume Parser] Successfully read TXT file');
+      console.log('[Resume Parser] Successfully read TXT file, length:', content.length);
       return content;
     }
 
     if (filename.toLowerCase().endsWith('.pdf') || 
         filename.toLowerCase().endsWith('.doc') || 
         filename.toLowerCase().endsWith('.docx')) {
-      console.log('[Resume Parser] Reading binary file as base64');
+      console.log('[Resume Parser] Processing binary file:', filename);
       
-      await FileSystem.readAsStringAsync(uri, {
+      const base64Content = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
 
-      const sampleText = `
-RESUME DOCUMENT
+      console.log('[Resume Parser] Successfully read file, base64 length:', base64Content.length);
 
-File: ${filename}
-Note: This is a demonstration. In production, you would use a PDF/DOC parsing library.
+      const instructionText = `
+RESUME FILE: ${filename}
 
-For accurate parsing, please convert your resume to TXT format, or the AI will attempt to extract information from the file metadata and name.
+This is a ${filename.split('.').pop()?.toUpperCase()} file. Since we cannot parse the binary content directly in React Native, the AI will infer a typical resume structure.
 
-Based on typical resume content, this file likely contains:
-- Personal Information (Name, Email, Phone)
-- Professional Summary
-- Work Experience
-- Education
-- Technical Skills
-- Projects
-- Certifications
+Please provide information about:
+- Your name and contact details
+- Educational background
+- Work experience (if applicable)
+- Technical and soft skills
+- Projects and achievements
+- Location preferences
 
-The AI will do its best to infer information and create a template profile.
+The AI will create a reasonable template based on your profile type (fresher/experienced) and this filename indicates you have prepared a resume.
+
+IMPORTANT: For best results, please manually verify and complete the extracted information in the next step.
 `;
 
-      console.log('[Resume Parser] Binary file detected, using template text');
-      return sampleText;
+      console.log('[Resume Parser] Binary file processed, returning instruction text');
+      return instructionText;
     }
 
     throw new Error('Unsupported file format. Please use PDF, DOC, DOCX, or TXT files.');
   } catch (error) {
     console.error('[Resume Parser] Error extracting text:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to read file: ${error.message}`);
+    }
     throw new Error('Failed to read file. Please try again.');
   }
 }
