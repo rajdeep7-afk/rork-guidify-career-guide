@@ -116,7 +116,7 @@ Analyze the highest scoring traits and recommend the most suitable career. Retur
         <View style={styles.celebrationSection}>
           <Text style={styles.congratsText}>Congratulations, {user?.name || 'Student'}!</Text>
           <Text style={styles.subtitleText}>
-            We&apos;ve analyzed your personality and strengths
+            We have analyzed your personality and strengths
           </Text>
         </View>
 
