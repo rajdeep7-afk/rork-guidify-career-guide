@@ -351,7 +351,9 @@ Return ONLY valid JSON, no other text.`;
                             }}
                           >
                             <Text style={styles.courseLinkText}>{course}</Text>
-                            <ExternalLink size={14} color={Colors.primary} style={{ marginLeft: 6 }} />
+                            <View style={{ marginLeft: 6 }}>
+                              <ExternalLink size={14} color={Colors.primary} />
+                            </View>
                           </Pressable>
                         </View>
                       );
