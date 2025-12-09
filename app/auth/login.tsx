@@ -13,6 +13,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const canGoBack = router.canGoBack();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -37,9 +38,11 @@ export default function LoginScreen() {
     <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.gradient}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </Pressable>
+          {canGoBack && (
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </Pressable>
+          )}
           <Text style={styles.headerTitle}>Sign In</Text>
         </View>
 

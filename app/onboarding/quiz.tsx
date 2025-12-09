@@ -124,14 +124,17 @@ export default function QuizScreen() {
   };
 
   const question = quizQuestions[currentQuestion];
+  const canGoBack = router.canGoBack();
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.text} />
-          </Pressable>
+          {canGoBack && (
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.text} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.progressBarContainer}>

@@ -139,13 +139,17 @@ export default function PersonalInfoScreen() {
     }
   };
 
+  const canGoBack = router.canGoBack();
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.text} />
-          </Pressable>
+          {canGoBack && (
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.text} />
+            </Pressable>
+          )}
           <Text style={styles.headerTitle}>Personal Information</Text>
         </View>
       </SafeAreaView>

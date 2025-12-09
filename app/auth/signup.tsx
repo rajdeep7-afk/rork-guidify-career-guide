@@ -14,6 +14,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const canGoBack = router.canGoBack();
 
   const handleSignup = async () => {
     if (!email || !password || !confirmPassword) {
@@ -45,9 +46,11 @@ export default function SignupScreen() {
     <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.gradient}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <ArrowLeft size={24} color={Colors.white} />
-          </Pressable>
+          {canGoBack && (
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <ArrowLeft size={24} color={Colors.white} />
+            </Pressable>
+          )}
           <Text style={styles.headerTitle}>Sign Up</Text>
         </View>
 
