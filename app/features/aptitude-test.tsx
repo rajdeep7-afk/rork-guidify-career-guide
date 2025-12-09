@@ -53,14 +53,23 @@ export default function AptitudeTestScreen() {
   const parseResumeMutation = trpc.resume.parse.useMutation({
     onSuccess: (data) => {
       console.log('[Aptitude Test] Resume parsed successfully:', data);
-      setExtractedSkills(data.skills || []);
+      const skills = data.skills || [];
+      setExtractedSkills(skills);
       setIsProcessingResume(false);
+      
+      if (skills.length > 0) {
+        console.log('[Aptitude Test] Auto-starting test with extracted skills:', skills.length);
+        setTimeout(() => {
+          generateInitialQuestions.mutate();
+        }, 500);
+      } else {
+        Alert.alert('No Skills Found', 'Could not extract skills from resume. Please try a different file or use subject-based test.');
+      }
     },
     onError: (error) => {
       console.error('[Aptitude Test] Resume parsing error:', error);
       setIsProcessingResume(false);
-      Alert.alert('Error', 'Failed to parse resume. Using fallback skills.');
-      setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
+      Alert.alert('Error', 'Failed to parse resume. Please try again or use subject-based test.');
     },
   });
 
@@ -349,7 +358,7 @@ Return ONLY valid JSON, no other text.`;
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <Text style={styles.pageTitle}>Upload Your Resume</Text>
             <Text style={styles.pageSubtitle}>
-              We&apos;ll analyze your resume and create a personalized adaptive test
+              We&apos;ll analyze your resume and automatically start a personalized test
             </Text>
 
             {!resumeFile ? (
@@ -360,6 +369,9 @@ Return ONLY valid JSON, no other text.`;
                 <Upload size={48} color={Colors.primary} />
                 <Text style={styles.uploadTitle}>Upload Resume</Text>
                 <Text style={styles.uploadSubtitle}>PDF, DOCX, or TXT format</Text>
+                <Text style={[styles.uploadSubtitle, { marginTop: 12, fontSize: 13 }]}>
+                  No configuration needed - the test will start automatically!
+                </Text>
               </Pressable>
             ) : (
               <View>
@@ -367,10 +379,12 @@ Return ONLY valid JSON, no other text.`;
                   <FileText size={32} color={Colors.success} />
                   <View style={styles.fileInfo}>
                     <Text style={styles.fileName}>{resumeFile.name}</Text>
-                    {isProcessingResume ? (
+                    {isProcessingResume || generateInitialQuestions.isPending ? (
                       <View style={styles.processingContainer}>
                         <ActivityIndicator size="small" color={Colors.primary} />
-                        <Text style={styles.processingText}>Analyzing resume...</Text>
+                        <Text style={styles.processingText}>
+                          {isProcessingResume ? 'Analyzing resume...' : 'Generating questions...'}
+                        </Text>
                       </View>
                     ) : (
                       <Text style={styles.fileStatus}>✓ Processed successfully</Text>
@@ -378,48 +392,52 @@ Return ONLY valid JSON, no other text.`;
                   </View>
                   <Pressable
                     onPress={() => {
-                      setResumeFile(null);
-                      setExtractedSkills([]);
+                      if (!isProcessingResume && !generateInitialQuestions.isPending) {
+                        setResumeFile(null);
+                        setExtractedSkills([]);
+                      }
                     }}
                     style={styles.removeButton}
+                    disabled={isProcessingResume || generateInitialQuestions.isPending}
                   >
                     <X size={20} color={Colors.error} />
                   </Pressable>
                 </View>
 
-                {extractedSkills.length > 0 && (
+                {extractedSkills.length > 0 && !generateInitialQuestions.isPending && (
                   <View style={styles.skillsContainer}>
                     <Text style={styles.skillsTitle}>Extracted Skills ({extractedSkills.length})</Text>
                     <View style={styles.skillsGrid}>
-                      {extractedSkills.map((skill, index) => (
+                      {extractedSkills.slice(0, 10).map((skill, index) => (
                         <View key={index} style={styles.skillChip}>
                           <Text style={styles.skillText}>{skill}</Text>
                         </View>
                       ))}
+                      {extractedSkills.length > 10 && (
+                        <View style={[styles.skillChip, { backgroundColor: Colors.textSecondary + '20' }]}>
+                          <Text style={[styles.skillText, { color: Colors.textSecondary }]}>+{extractedSkills.length - 10} more</Text>
+                        </View>
+                      )}
                     </View>
                     <Text style={styles.skillsNote}>
-                      Questions will adapt based on your performance
+                      Starting adaptive test in a moment...
                     </Text>
                   </View>
                 )}
 
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.startButton,
-                    pressed && styles.buttonPressed,
-                    (isProcessingResume || generateInitialQuestions.isPending) && styles.buttonDisabled,
-                  ]}
-                  onPress={handleStart}
-                  disabled={isProcessingResume || generateInitialQuestions.isPending || extractedSkills.length === 0}
-                >
-                  <Text style={styles.startButtonText}>
-                    {generateInitialQuestions.isPending
-                      ? 'Generating Questions...'
-                      : isProcessingResume
-                      ? 'Processing Resume...'
-                      : 'Start Adaptive Test'}
-                  </Text>
-                </Pressable>
+                {(isProcessingResume || generateInitialQuestions.isPending) && (
+                  <View style={styles.loadingCard}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                    <Text style={styles.loadingCardTitle}>
+                      {isProcessingResume ? 'Analyzing Resume' : 'Generating Test'}
+                    </Text>
+                    <Text style={styles.loadingCardText}>
+                      {isProcessingResume 
+                        ? 'Extracting skills and experience from your resume...'
+                        : 'Creating personalized questions based on your profile...'}
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -1208,5 +1226,27 @@ const styles = StyleSheet.create({
   loadingSubtext: {
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+  loadingCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    marginTop: 24,
+    borderWidth: 2,
+    borderColor: Colors.primary + '40',
+  },
+  loadingCardTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  loadingCardText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

@@ -89,16 +89,24 @@ export default function JobFinderScreen() {
       console.log('[Job Finder] Resume parsed successfully:', data);
       
       if (profileType === 'fresher') {
-        setFresherData({
+        const profile: FresherProfile = {
+          type: 'fresher',
+          resumeText: resumeFile!.text,
           skills: data.skills || [],
           summary: data.summary || '',
           cgpa: data.cgpa || null,
           education_stream: data.education_stream || '',
           institute_name: data.institute_name || '',
           preferred_location: data.preferred_location || '',
-        });
+        };
+        setFresherData(profile);
+        
+        console.log('[Job Finder] Auto-submitting fresher profile for job recommendations');
+        jobRecommendMutation.mutate(profile);
       } else {
-        setExperiencedData({
+        const profile: ExperiencedProfile = {
+          type: 'experienced',
+          resumeText: resumeFile!.text,
           skills: data.skills || [],
           summary: data.summary || '',
           previous_company: data.previous_company || '',
@@ -106,17 +114,20 @@ export default function JobFinderScreen() {
           previous_salary: data.previous_salary || null,
           projects: data.projects || '',
           preferred_location: data.preferred_location || '',
-        });
+        };
+        setExperiencedData(profile);
+        
+        console.log('[Job Finder] Auto-submitting experienced profile for job recommendations');
+        jobRecommendMutation.mutate(profile);
       }
       
       setIsParsingResume(false);
-      setStep('profile');
     },
     onError: (error) => {
       console.error('[Job Finder] Resume parsing error:', error);
       setIsParsingResume(false);
-      Alert.alert('Error', 'Failed to parse resume. Please try again or fill in manually.');
-      setStep('profile');
+      Alert.alert('Error', 'Failed to parse resume. Please try again.');
+      setStep('type');
     },
   });
 
@@ -297,15 +308,19 @@ export default function JobFinderScreen() {
     <View style={styles.formContainer}>
       <Text style={styles.stepTitle}>Upload Your Resume</Text>
       <Text style={styles.stepSubtitle}>
-        We&apos;ll automatically extract all your information from the resume
+        We&apos;ll automatically extract all information and find matching jobs
       </Text>
 
-      {isParsingResume ? (
+      {isParsingResume || jobRecommendMutation.isPending ? (
         <View style={styles.parsingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.parsingTitle}>Parsing Your Resume...</Text>
+          <Text style={styles.parsingTitle}>
+            {isParsingResume ? 'Parsing Your Resume...' : 'Finding Perfect Jobs...'}
+          </Text>
           <Text style={styles.parsingSubtitle}>
-            AI is extracting your skills, experience, and other details
+            {isParsingResume 
+              ? 'AI is extracting your skills, experience, and other details'
+              : 'Matching your profile with the best opportunities'}
           </Text>
         </View>
       ) : !resumeFile ? (
@@ -319,6 +334,9 @@ export default function JobFinderScreen() {
           <Upload size={48} color={Colors.primary} />
           <Text style={styles.uploadTitle}>Tap to Upload Resume</Text>
           <Text style={styles.uploadSubtitle}>PDF, DOC, DOCX, or TXT</Text>
+          <Text style={[styles.uploadSubtitle, { marginTop: 12, fontSize: 13 }]}>
+            No manual entry needed - just upload and we&apos;ll handle the rest!
+          </Text>
         </Pressable>
       ) : null}
     </View>
