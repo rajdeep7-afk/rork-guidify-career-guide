@@ -115,13 +115,6 @@ export default function LandingPage() {
             >
               <Text style={styles.primaryButtonText}>Get Started</Text>
             </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-              onPress={() => router.push('/auth/login')}
-            >
-              <Text style={styles.secondaryButtonText}>Sign In</Text>
-            </Pressable>
           </View>
         </Animated.View>
       </SafeAreaView>
