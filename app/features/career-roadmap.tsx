@@ -147,12 +147,12 @@ Return ONLY valid JSON, no other text.`;
 
 For each platform, find 3-5 relevant courses:
 
-1. NCVET: National Council for Vocational Education & Training - https://nqr.gov.in/
-2. NSQF: National Skills Qualifications Framework - https://nqr.gov.in/qualification-pack
-3. NPTEL: National Programme on Technology Enhanced Learning - https://nptel.ac.in/
-4. Coursera: Professional certificates and specializations - https://www.coursera.org/
-5. Udemy: Practical skills courses - https://www.udemy.com/
-6. GreatLearning: Career-focused programs - https://www.mygreatlearning.com/
+1. NCVET: National Council for Vocational Education & Training
+2. NSQF: National Skills Qualifications Framework
+3. NPTEL: National Programme on Technology Enhanced Learning
+4. Coursera: Professional certificates and specializations
+5. Udemy: Practical skills courses
+6. GreatLearning: Career-focused programs
 
 Return as JSON array:
 [
@@ -160,18 +160,35 @@ Return as JSON array:
     "name": "Course Name",
     "platform": "NCVET" or "NSQF" or "NPTEL" or "Coursera" or "Udemy" or "GreatLearning",
     "description": "Brief description of what this course covers",
-    "link": "Direct enrollment URL (use real platform URLs with specific course paths)"
+    "link": "MUST BE EXACT COURSE URL - For Coursera use https://www.coursera.org/learn/[course-slug], For Udemy use https://www.udemy.com/course/[course-slug], For GreatLearning use https://www.mygreatlearning.com/academy/learn-for-free/courses/[course-slug]"
   }
 ]
 
-IMPORTANT: Generate realistic course names and construct working URLs with actual course paths for each platform.
+IMPORTANT RULES:
+- For NCVET courses: Use ONLY the link "https://www.kaushalverse.ncvet.gov.in/homepage" for ALL NCVET courses
+- For NSQF courses: Use ONLY the link "https://www.nielit.gov.in/CoursePage.html" for ALL NSQF courses
+- For NPTEL courses: Use ONLY the link "https://nptel.ac.in/courses" for ALL NPTEL courses
+- For Coursera: Generate real, specific course URLs with actual course slugs
+- For Udemy: Generate real, specific course URLs with actual course slugs
+- For GreatLearning: Generate real, specific course URLs with actual course slugs
 
 Return ONLY valid JSON, no other text.`;
 
       const response = await generateText(prompt);
       const jsonMatch = response.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return [];
-      return JSON.parse(jsonMatch[0]) as Course[];
+      const courses = JSON.parse(jsonMatch[0]) as Course[];
+      
+      return courses.map(course => {
+        if (course.platform === 'NCVET') {
+          return { ...course, link: 'https://www.kaushalverse.ncvet.gov.in/homepage' };
+        } else if (course.platform === 'NSQF') {
+          return { ...course, link: 'https://www.nielit.gov.in/CoursePage.html' };
+        } else if (course.platform === 'NPTEL') {
+          return { ...course, link: 'https://nptel.ac.in/courses' };
+        }
+        return course;
+      });
     },
     onSuccess: (data) => {
       setCourses(data);
@@ -287,30 +304,41 @@ Return ONLY valid JSON, no other text.`;
                       <BookOpen size={18} color={Colors.secondary} />
                       <Text style={styles.sectionTitle}>Recommended Courses</Text>
                     </View>
-                    {milestone.courses.map((course, i) => (
-                      <View key={i} style={styles.listItem}>
-                        <View style={styles.bullet} />
-                        <Pressable
-                          style={styles.courseLink}
-                          onPress={async () => {
-                            const searchQuery = encodeURIComponent(course);
-                            const urls = [
-                              `https://www.coursera.org/search?query=${searchQuery}`,
-                              `https://www.udemy.com/courses/search/?q=${searchQuery}`,
-                              `https://nptel.ac.in/course.html`,
-                            ];
-                            try {
-                              await Linking.openURL(urls[i % urls.length]);
-                            } catch {
-                              Alert.alert('Info', 'Please search for: ' + course);
-                            }
-                          }}
-                        >
-                          <Text style={styles.courseLinkText}>{course}</Text>
-                          <ExternalLink size={14} color={Colors.primary} style={{ marginLeft: 6 }} />
-                        </Pressable>
-                      </View>
-                    ))}
+                    {milestone.courses.map((course, i) => {
+                      const searchQuery = encodeURIComponent(course);
+                      let courseUrl = `https://www.google.com/search?q=${searchQuery}`;
+                      
+                      if (course.toLowerCase().includes('coursera')) {
+                        courseUrl = `https://www.coursera.org/search?query=${searchQuery}`;
+                      } else if (course.toLowerCase().includes('udemy')) {
+                        courseUrl = `https://www.udemy.com/courses/search/?q=${searchQuery}`;
+                      } else if (course.toLowerCase().includes('nptel')) {
+                        courseUrl = `https://nptel.ac.in/courses`;
+                      } else if (course.toLowerCase().includes('ncvet')) {
+                        courseUrl = `https://www.kaushalverse.ncvet.gov.in/homepage`;
+                      } else if (course.toLowerCase().includes('nsqf') || course.toLowerCase().includes('nielit')) {
+                        courseUrl = `https://www.nielit.gov.in/CoursePage.html`;
+                      }
+                      
+                      return (
+                        <View key={i} style={styles.listItem}>
+                          <View style={styles.bullet} />
+                          <Pressable
+                            style={styles.courseLink}
+                            onPress={async () => {
+                              try {
+                                await Linking.openURL(courseUrl);
+                              } catch {
+                                Alert.alert('Info', 'Please search for: ' + course);
+                              }
+                            }}
+                          >
+                            <Text style={styles.courseLinkText}>{course}</Text>
+                            <ExternalLink size={14} color={Colors.primary} style={{ marginLeft: 6 }} />
+                          </Pressable>
+                        </View>
+                      );
+                    })}
                   </View>
                 )}
 
