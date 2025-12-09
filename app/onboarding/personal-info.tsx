@@ -29,7 +29,7 @@ const ACADEMIC_LEVELS = [
 export default function PersonalInfoScreen() {
   const router = useRouter();
   const { user, updateProfile: updateAuthProfile } = useAuth();
-  const { updateProfile, validateProfile: validateProfileFn } = useProfile();
+  const { profile, updateProfile, createProfile, validateProfile: validateProfileFn } = useProfile();
   
   const [name, setName] = useState(user?.name || '');
   const [age, setAge] = useState(user?.age?.toString() || '');
@@ -122,7 +122,9 @@ export default function PersonalInfoScreen() {
       ambitions,
     };
 
-    const result = await updateProfile(profileData);
+    const result = profile 
+      ? await updateProfile(profileData)
+      : await createProfile(profileData);
     
     if (result.success) {
       await updateAuthProfile(profileData);
