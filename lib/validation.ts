@@ -60,16 +60,7 @@ export function validateProfile(profile: Partial<UserProfile>): ProfileValidatio
     }
   }
 
-  if (!profile.goals || profile.goals.trim().length < 10) {
-    errors.push({ field: 'goals', message: 'Please describe your goals (at least 10 characters)' });
-  }
 
-  if (!profile.ambitions || profile.ambitions.trim().length < 10) {
-    errors.push({
-      field: 'ambitions',
-      message: 'Please describe your ambitions (at least 10 characters)',
-    });
-  }
 
   return {
     isValid: errors.length === 0,
@@ -137,26 +128,7 @@ export function validateField(
       }
       break;
 
-    case 'goals':
-      if (
-        !value ||
-        (typeof value === 'string' && value.trim().length < 10)
-      ) {
-        return { field: 'goals', message: 'Please describe your goals (at least 10 characters)' };
-      }
-      break;
 
-    case 'ambitions':
-      if (
-        !value ||
-        (typeof value === 'string' && value.trim().length < 10)
-      ) {
-        return {
-          field: 'ambitions',
-          message: 'Please describe your ambitions (at least 10 characters)',
-        };
-      }
-      break;
   }
 
   return null;
