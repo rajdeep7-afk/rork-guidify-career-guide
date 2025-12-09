@@ -39,25 +39,87 @@ export default function QuizResultsScreen() {
     mutationFn: async () => {
       if (!user || !scores) return '';
 
-      const prompt = `Based on the following personality trait scores, recommend ONE career title (2-3 words maximum) that best matches the highest trait cluster.
+      const prompt = `Developer: # Part 1 — Personality Question Generator
+- Begin with a concise checklist (3–7 bullets) outlining the planning steps before question generation.
+- Brainstorm potential question topics relevant to the specified traits.
+- Select and refine a single, short, and effective question targeting one or more traits.
+- Ensure the question is clear, simple, and free of jargon.
+- Confirm that response options fit precisely into the four required categories.
 
-Personality Scores:
+Generate one concise, impactful personality question designed to reveal a user's tendencies on:
+- Creative
+- Analytical
+- Logical
+- Literacy
+- Communication
+- Problem Solving
+
+**Requirements:**
+- The question must use clear, simple language without jargon.
+- It should intuitively elicit personality tendencies.
+- Limit answer choices to:
+  - "Strongly Agree"
+  - "Agree"
+  - "Disagree"
+  - "Strongly Disagree"
+
+**Example styles (do not reuse these):**
+- "I enjoy breaking down complex problems into simple steps."
+- "I often come up with original ideas or new ways of doing things."
+- "I feel confident expressing my thoughts to others."
+
+After generating the question, self-validate in 1–2 lines that it directly targets at least one trait and uses plain language. If not, revise and repeat until requirements are met. After each generation, validate that the generated question meets all requirements before proceeding.
+
+# Part 2 — Personality-Based Career Recommendation
+Once all questions are answered, compute a 0–100 score for each trait:
+- Creative
+- Analytical
+- Logical
+- Literacy
+- Communication
+- Problem Solving
+
+**Instructions:**
+- Consider only the provided personality trait scores.
+- Ignore user goals, ambitions, education, or background.
+- Based exclusively on the highest trait cluster, recommend one career title (2–3 words maximum).
+- Output only the career title in the specified JSON schema; do not include extra text.
+
+**Strict Trait-to-Career Mapping:**
+- High Creative + Communication → "Marketing Manager", "Content Creator", "Brand Designer"
+- High Analytical + Logical + Problem Solving → "Software Engineer", "Data Scientist", "AI Engineer"
+- High Literacy + Communication → "Writer", "Journalist", "Teacher"
+- High Analytical + Literacy → "Research Analyst", "Business Analyst"
+- High Creative + Problem Solving → "Product Designer", "Architect"
+- If multiple clusters are close, select the one with the most clearly dominant score.
+
+## Output Format
+### Input Schema
+1. **Question Generation:** No input needed.
+2. **Career Recommendation:** Expect a JSON object with integer scores (0–100) for each dimension:
+
+Scores provided:
 - Creative: ${scores.creative}
 - Analytical: ${scores.analytical}
 - Logical: ${scores.logical}
+- Literacy: ${scores.literacy || 0}
 - Communication: ${scores.communication}
 - Problem Solving: ${scores.problemSolving}
-- Leadership: ${scores.leadership}
 
-Trait-to-Career Mapping:
-- High Creative + Communication → "Marketing Manager", "Content Creator", "Brand Designer"
-- High Analytical + Logical + Problem Solving → "Software Engineer", "Data Scientist", "AI Engineer"
-- High Communication → "Writer", "Journalist", "Teacher"
-- High Analytical → "Research Analyst", "Business Analyst"
-- High Creative + Problem Solving → "Product Designer", "Architect"
-- High Leadership → "Project Manager", "Team Leader"
+- All fields are required and must be integers between 0 and 100.
+- If any field is missing or invalid, return an error.
 
-Return only the career title as plain text, nothing else.`;
+### Output Schema
+- Success: Provide the career title as plain text
+- Error: Explain what went wrong
+
+### Example Response
+Product Designer
+
+Always validate that outputs for Part 2 strictly conform to this schema before submitting the response.
+For straightforward mappings, set reasoning_effort = minimal.
+
+Based on the scores above, recommend ONE career title (2-3 words maximum) that best matches the highest trait cluster. Return only the career title as plain text, nothing else.`;
 
       const response = await generateText(prompt);
       return response.trim();
