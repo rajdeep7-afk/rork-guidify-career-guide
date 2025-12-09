@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Briefcase, Building2, DollarSign, FileText, MapPin, Plus, Star, Trash2, Upload, X } from 'lucide-react-native';
+import { ArrowLeft, Briefcase, Building2, DollarSign, FileText, MapPin, Plus, Star, Upload, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import Colors from '@/constants/colors';
 import { trpc } from '@/lib/trpc';
+import { extractTextFromFile } from '@/lib/resume-parser';
 
 type ProfileType = 'fresher' | 'experienced' | null;
 
@@ -59,6 +60,7 @@ export default function JobFinderScreen() {
   const [step, setStep] = useState<'type' | 'resume' | 'profile' | 'results'>('type');
   const [profileType, setProfileType] = useState<ProfileType>(null);
   const [resumeFile, setResumeFile] = useState<{ name: string; text: string } | null>(null);
+  const [isParsingResume, setIsParsingResume] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
 
   const [fresherData, setFresherData] = useState<Partial<FresherProfile>>({
@@ -82,6 +84,42 @@ export default function JobFinderScreen() {
 
   const [newSkill, setNewSkill] = useState('');
 
+  const parseResumeMutation = trpc.resume.parse.useMutation({
+    onSuccess: (data) => {
+      console.log('[Job Finder] Resume parsed successfully:', data);
+      
+      if (profileType === 'fresher') {
+        setFresherData({
+          skills: data.skills || [],
+          summary: data.summary || '',
+          cgpa: data.cgpa || null,
+          education_stream: data.education_stream || '',
+          institute_name: data.institute_name || '',
+          preferred_location: data.preferred_location || '',
+        });
+      } else {
+        setExperiencedData({
+          skills: data.skills || [],
+          summary: data.summary || '',
+          previous_company: data.previous_company || '',
+          years_of_experience: data.years_of_experience || 0,
+          previous_salary: data.previous_salary || null,
+          projects: data.projects || '',
+          preferred_location: data.preferred_location || '',
+        });
+      }
+      
+      setIsParsingResume(false);
+      setStep('profile');
+    },
+    onError: (error) => {
+      console.error('[Job Finder] Resume parsing error:', error);
+      setIsParsingResume(false);
+      Alert.alert('Error', 'Failed to parse resume. Please try again or fill in manually.');
+      setStep('profile');
+    },
+  });
+
   const jobRecommendMutation = trpc.jobs.recommend.useMutation({
     onSuccess: (data) => {
       setJobs(data);
@@ -103,38 +141,24 @@ export default function JobFinderScreen() {
       if (!result.canceled && result.assets[0]) {
         const file = result.assets[0];
         
-        const sampleResumeText = `Resume: ${file.name}
+        console.log('[Job Finder] File picked:', file.name);
+        setIsParsingResume(true);
+
+        const resumeText = await extractTextFromFile(file.uri, file.name);
         
-This is a sample resume text. In production, you would extract text from PDF/DOC files.
-For demonstration, this contains typical resume sections:
-
-Skills: JavaScript, React, Node.js, Python, SQL, Git
-Experience: Software development, Team collaboration, Problem solving
-Education: Computer Science degree
-Projects: Built multiple web applications
-        `;
-
         setResumeFile({
           name: file.name,
-          text: sampleResumeText,
+          text: resumeText,
         });
 
-        if (profileType === 'fresher') {
-          setFresherData(prev => ({
-            ...prev,
-            skills: ['JavaScript', 'React', 'Node.js', 'Python', 'SQL', 'Git'],
-          }));
-        } else {
-          setExperiencedData(prev => ({
-            ...prev,
-            skills: ['JavaScript', 'React', 'Node.js', 'Python', 'SQL', 'Git'],
-          }));
-        }
-
-        setStep('profile');
+        parseResumeMutation.mutate({
+          resumeText,
+          profileType: profileType as 'fresher' | 'experienced',
+        });
       }
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('[Job Finder] Error picking document:', error);
+      setIsParsingResume(false);
       Alert.alert('Error', 'Failed to pick resume file');
     }
   };
@@ -273,10 +297,18 @@ Projects: Built multiple web applications
     <View style={styles.formContainer}>
       <Text style={styles.stepTitle}>Upload Your Resume</Text>
       <Text style={styles.stepSubtitle}>
-        We&apos;ll extract your skills and experience from your resume
+        We&apos;ll automatically extract all your information from the resume
       </Text>
 
-      {!resumeFile ? (
+      {isParsingResume ? (
+        <View style={styles.parsingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.parsingTitle}>Parsing Your Resume...</Text>
+          <Text style={styles.parsingSubtitle}>
+            AI is extracting your skills, experience, and other details
+          </Text>
+        </View>
+      ) : !resumeFile ? (
         <Pressable
           style={({ pressed }) => [
             styles.uploadBox,
@@ -288,24 +320,7 @@ Projects: Built multiple web applications
           <Text style={styles.uploadTitle}>Tap to Upload Resume</Text>
           <Text style={styles.uploadSubtitle}>PDF, DOC, DOCX, or TXT</Text>
         </Pressable>
-      ) : (
-        <View style={styles.uploadedFile}>
-          <FileText size={32} color={Colors.success} />
-          <View style={styles.uploadedFileInfo}>
-            <Text style={styles.uploadedFileName}>{resumeFile.name}</Text>
-            <Text style={styles.uploadedFileStatus}>Resume uploaded successfully</Text>
-          </View>
-          <Pressable onPress={() => setResumeFile(null)}>
-            <Trash2 size={24} color={Colors.error} />
-          </Pressable>
-        </View>
-      )}
-
-      {resumeFile && (
-        <Pressable style={styles.primaryButton} onPress={() => setStep('profile')}>
-          <Text style={styles.primaryButtonText}>Continue</Text>
-        </Pressable>
-      )}
+      ) : null}
     </View>
   );
 
@@ -1110,5 +1125,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700' as const,
     color: Colors.white,
+  },
+  parsingContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 48,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: Colors.primary + '40',
+  },
+  parsingTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  parsingSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

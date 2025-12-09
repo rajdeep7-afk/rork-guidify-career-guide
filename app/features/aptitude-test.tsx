@@ -17,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useAuth } from '@/contexts/AuthContext';
 import Colors from '@/constants/colors';
+import { trpc } from '@/lib/trpc';
+import { extractTextFromFile } from '@/lib/resume-parser';
 
 interface Question {
   question: string;
@@ -48,6 +50,20 @@ export default function AptitudeTestScreen() {
   const [correctStreak, setCorrectStreak] = useState(0);
   const [incorrectStreak, setIncorrectStreak] = useState(0);
 
+  const parseResumeMutation = trpc.resume.parse.useMutation({
+    onSuccess: (data) => {
+      console.log('[Aptitude Test] Resume parsed successfully:', data);
+      setExtractedSkills(data.skills || []);
+      setIsProcessingResume(false);
+    },
+    onError: (error) => {
+      console.error('[Aptitude Test] Resume parsing error:', error);
+      setIsProcessingResume(false);
+      Alert.alert('Error', 'Failed to parse resume. Using fallback skills.');
+      setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
+    },
+  });
+
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -60,85 +76,29 @@ export default function AptitudeTestScreen() {
       }
 
       const file = result.assets[0];
+      console.log('[Aptitude Test] File picked:', file.name);
+      
       setResumeFile({
         name: file.name,
         uri: file.uri,
       });
       
       setIsProcessingResume(true);
-      await processResume(file.uri, file.name);
+
+      const resumeText = await extractTextFromFile(file.uri, file.name);
+      
+      parseResumeMutation.mutate({
+        resumeText,
+        profileType: 'experienced',
+      });
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('[Aptitude Test] Error picking document:', error);
+      setIsProcessingResume(false);
       Alert.alert('Error', 'Failed to pick document. Please try again.');
     }
   };
 
-  const processResume = async (uri: string, filename: string) => {
-    try {
-      let fileContent = '';
-      
-      if (filename.endsWith('.txt')) {
-        const response = await fetch(uri);
-        fileContent = await response.text();
-      } else {
-        fileContent = `Resume file: ${filename}\nNote: For PDF/DOCX files, please convert to TXT format for accurate skill extraction.\n\nFor demonstration, here are sample skills: Programming, Problem Solving, Communication`;
-      }
 
-      const prompt = `You are a precise skill extractor. Your job is to scan this resume and extract ONLY technical skills, programming languages, tools, frameworks, platforms, and technologies that are EXPLICITLY mentioned.
-
-Resume Content:
-${fileContent}
-
-Instructions:
-1. Look for sections labeled: "Skills", "Technical Skills", "Technologies", "Tools", "Platforms", "Programming Languages", "Frameworks", "Software", "Tech Stack"
-2. Extract EVERY skill, tool, technology, programming language, framework, platform, and software explicitly mentioned
-3. Include: Programming languages (Java, Python, JavaScript, etc.), Frameworks (React, Angular, FastAPI, etc.), Tools (Git, Docker, Postman, etc.), Databases (MongoDB, SQL, PostgreSQL, etc.), Cloud platforms (AWS, GCP, Azure, etc.), and any other technical skills
-4. DO NOT infer, assume, or add skills that are not explicitly written
-5. DO NOT add generic soft skills like "Problem Solving", "Communication", "Leadership" unless there are NO technical skills found
-6. If you find technical skills, return ONLY technical skills
-7. Extract exactly as written in the resume
-
-Return ONLY a JSON array with NO additional text:
-["skill1", "skill2", "skill3"]
-
-Example: If resume mentions "Java, Python, JavaScript, SQL, ReactJS, Docker, Git, AWS, FastAPI, Linux, MongoDB, Postman, JUnit, Mockito, HTML5, CSS3", return exactly those skills.`;
-      
-      const response = await generateText(prompt);
-      console.log('AI Response:', response);
-      
-      const jsonMatch = response.match(/\[([\s\S]*?)\]/);
-      
-      if (jsonMatch) {
-        try {
-          const fullMatch = `[${jsonMatch[1]}]`;
-          const skills = JSON.parse(fullMatch) as string[];
-          
-          const validSkills = skills
-            .filter(skill => typeof skill === 'string' && skill.trim().length > 0)
-            .map(skill => skill.trim())
-            .slice(0, 20);
-          
-          if (validSkills.length > 0) {
-            console.log('Extracted Skills:', validSkills);
-            setExtractedSkills(validSkills);
-          } else {
-            console.log('No valid skills found, using defaults');
-            setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
-          }
-        } catch (parseError) {
-          console.error('JSON parse error:', parseError);
-          setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
-        }
-      } else {
-        setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
-      }
-    } catch (error) {
-      console.error('Error processing resume:', error);
-      setExtractedSkills(['General Knowledge', 'Problem Solving', 'Analytical Thinking']);
-    } finally {
-      setIsProcessingResume(false);
-    }
-  };
 
   const generateAdaptiveQuestion = useMutation({
     mutationFn: async (difficulty: 'easy' | 'medium' | 'hard') => {
