@@ -17,10 +17,6 @@ export function validateProfile(profile: Partial<UserProfile>): ProfileValidatio
     errors.push({ field: 'age', message: 'Please enter a valid age (10-100)' });
   }
 
-  if (!profile.institution || profile.institution.trim().length === 0) {
-    errors.push({ field: 'institution', message: 'Institution name is required' });
-  }
-
   if (!profile.standard || profile.standard.trim().length === 0) {
     errors.push({ field: 'standard', message: 'Academic year/standard is required' });
   }
@@ -96,12 +92,6 @@ export function validateField(
     case 'age':
       if (typeof value === 'number' && (value < 10 || value > 100)) {
         return { field: 'age', message: 'Please enter a valid age (10-100)' };
-      }
-      break;
-
-    case 'institution':
-      if (!value || (typeof value === 'string' && value.trim().length === 0)) {
-        return { field: 'institution', message: 'Institution name is required' };
       }
       break;
 
