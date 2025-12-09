@@ -38,7 +38,7 @@ interface NCVETQualification {
 
 interface Course {
   name: string;
-  platform: 'NCVET' | 'Coursera' | 'Udemy' | 'GreatLearning';
+  platform: 'NCVET' | 'NSQF' | 'NPTEL' | 'Coursera' | 'Udemy' | 'GreatLearning';
   description: string;
   link: string;
 }
@@ -143,30 +143,28 @@ Return ONLY valid JSON, no other text.`;
 
   const coursesMutation = useMutation({
     mutationFn: async (careerGoal: string) => {
-      const prompt = `Find real, accessible courses for the career: "${careerGoal}". Provide courses from NCVET/Skill India, Coursera, Udemy, and GreatLearning platforms.
+      const prompt = `Find real, accessible courses for the career: "${careerGoal}". Provide courses from NCVET, NSQF, NPTEL, Coursera, Udemy, and GreatLearning platforms.
 
 For each platform, find 3-5 relevant courses:
 
-1. NCVET/Skill India: Government vocational training programs
-2. Coursera: Professional certificates and specializations
-3. Udemy: Practical skills courses
-4. GreatLearning: Career-focused programs
+1. NCVET: National Council for Vocational Education & Training - https://nqr.gov.in/
+2. NSQF: National Skills Qualifications Framework - https://nqr.gov.in/qualification-pack
+3. NPTEL: National Programme on Technology Enhanced Learning - https://nptel.ac.in/
+4. Coursera: Professional certificates and specializations - https://www.coursera.org/
+5. Udemy: Practical skills courses - https://www.udemy.com/
+6. GreatLearning: Career-focused programs - https://www.mygreatlearning.com/
 
 Return as JSON array:
 [
   {
     "name": "Course Name",
-    "platform": "NCVET" or "Coursera" or "Udemy" or "GreatLearning",
+    "platform": "NCVET" or "NSQF" or "NPTEL" or "Coursera" or "Udemy" or "GreatLearning",
     "description": "Brief description of what this course covers",
-    "link": "Direct enrollment URL (use real platform URLs)"
+    "link": "Direct enrollment URL (use real platform URLs with specific course paths)"
   }
 ]
 
-IMPORTANT: Use realistic course names and real platform URLs. For example:
-- NCVET: https://www.nqr.gov.in/
-- Coursera: https://www.coursera.org/
-- Udemy: https://www.udemy.com/
-- GreatLearning: https://www.mygreatlearning.com/
+IMPORTANT: Generate realistic course names and construct working URLs with actual course paths for each platform.
 
 Return ONLY valid JSON, no other text.`;
 
@@ -253,76 +251,6 @@ Return ONLY valid JSON, no other text.`;
               <Text style={styles.roadmapTitle}>Your Path to {careerInput}</Text>
             </View>
 
-            {ncvetQualifications.length > 0 && (
-              <View style={styles.ncvetSection}>
-                <Text style={styles.ncvetTitle}>NCVET/NQR Qualifications</Text>
-                <Text style={styles.ncvetSubtitle}>Official government-recognized qualifications</Text>
-                {ncvetQualifications.map((qual, index) => (
-                  <View key={index} style={styles.qualCard}>
-                    <Text style={styles.qualTitle}>{qual.qualification_title}</Text>
-                    <View style={styles.qualMeta}>
-                      <Text style={styles.qualMetaText}>Sector: {qual.sector}</Text>
-                      <Text style={styles.qualMetaText}>NSQF Level: {qual.nsqf_level}</Text>
-                    </View>
-                    {qual.qualification_code && (
-                      <Text style={styles.qualCode}>Code: {qual.qualification_code}</Text>
-                    )}
-                    <Text style={styles.qualSummary}>{qual.summary}</Text>
-                    {qual.job_roles.length > 0 && (
-                      <View style={styles.jobRolesContainer}>
-                        <Text style={styles.jobRolesLabel}>Job Roles:</Text>
-                        {qual.job_roles.map((role, i) => (
-                          <Text key={i} style={styles.jobRoleText}>• {role}</Text>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {courses.length > 0 && (
-              <View style={styles.coursesSection}>
-                <Text style={styles.coursesTitle}>Recommended Courses</Text>
-                <Text style={styles.coursesSubtitle}>Enhance your skills with these courses</Text>
-                {['NCVET' as const, 'Coursera' as const, 'Udemy' as const, 'GreatLearning' as const].map((platform) => {
-                  const platformCourses = courses.filter(c => c.platform === platform);
-                  if (platformCourses.length === 0) return null;
-                  
-                  return (
-                    <View key={platform} style={styles.platformSection}>
-                      <Text style={styles.platformName}>{platform}</Text>
-                      {platformCourses.map((course, idx) => (
-                        <View
-                          key={idx}
-                          style={styles.courseCard}
-                        >
-                          <View style={styles.courseHeader}>
-                            <BookOpen size={20} color={Colors.primary} />
-                            <Text style={styles.courseName}>{course.name}</Text>
-                          </View>
-                          <Text style={styles.courseDescription}>{course.description}</Text>
-                          <Pressable
-                            style={styles.enrollButton}
-                            onPress={async () => {
-                              try {
-                                await Linking.openURL(course.link);
-                              } catch {
-                                Alert.alert('Error', 'Unable to open link');
-                              }
-                            }}
-                          >
-                            <ExternalLink size={16} color={Colors.white} />
-                            <Text style={styles.enrollButtonText}>Enroll Now</Text>
-                          </Pressable>
-                        </View>
-                      ))}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
             {roadmap.map((milestone, index) => (
               <View key={index} style={styles.milestoneCard}>
                 <View style={styles.milestoneHeader}>
@@ -362,7 +290,25 @@ Return ONLY valid JSON, no other text.`;
                     {milestone.courses.map((course, i) => (
                       <View key={i} style={styles.listItem}>
                         <View style={styles.bullet} />
-                        <Text style={styles.listItemText}>{course}</Text>
+                        <Pressable
+                          style={styles.courseLink}
+                          onPress={async () => {
+                            const searchQuery = encodeURIComponent(course);
+                            const urls = [
+                              `https://www.coursera.org/search?query=${searchQuery}`,
+                              `https://www.udemy.com/courses/search/?q=${searchQuery}`,
+                              `https://nptel.ac.in/course.html`,
+                            ];
+                            try {
+                              await Linking.openURL(urls[i % urls.length]);
+                            } catch {
+                              Alert.alert('Info', 'Please search for: ' + course);
+                            }
+                          }}
+                        >
+                          <Text style={styles.courseLinkText}>{course}</Text>
+                          <ExternalLink size={14} color={Colors.primary} style={{ marginLeft: 6 }} />
+                        </Pressable>
                       </View>
                     ))}
                   </View>
@@ -399,6 +345,76 @@ Return ONLY valid JSON, no other text.`;
                 )}
               </View>
             ))}
+
+            {ncvetQualifications.length > 0 && (
+              <View style={styles.ncvetSection}>
+                <Text style={styles.ncvetTitle}>NCVET/NQR Qualifications</Text>
+                <Text style={styles.ncvetSubtitle}>Official government-recognized qualifications</Text>
+                {ncvetQualifications.map((qual, index) => (
+                  <View key={index} style={styles.qualCard}>
+                    <Text style={styles.qualTitle}>{qual.qualification_title}</Text>
+                    <View style={styles.qualMeta}>
+                      <Text style={styles.qualMetaText}>Sector: {qual.sector}</Text>
+                      <Text style={styles.qualMetaText}>NSQF Level: {qual.nsqf_level}</Text>
+                    </View>
+                    {qual.qualification_code && (
+                      <Text style={styles.qualCode}>Code: {qual.qualification_code}</Text>
+                    )}
+                    <Text style={styles.qualSummary}>{qual.summary}</Text>
+                    {qual.job_roles.length > 0 && (
+                      <View style={styles.jobRolesContainer}>
+                        <Text style={styles.jobRolesLabel}>Job Roles:</Text>
+                        {qual.job_roles.map((role, i) => (
+                          <Text key={i} style={styles.jobRoleText}>• {role}</Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {courses.length > 0 && (
+              <View style={styles.coursesSection}>
+                <Text style={styles.coursesTitle}>Recommended Courses</Text>
+                <Text style={styles.coursesSubtitle}>Enhance your skills with these courses</Text>
+                {['NCVET' as const, 'NSQF' as const, 'NPTEL' as const, 'Coursera' as const, 'Udemy' as const, 'GreatLearning' as const].map((platform) => {
+                  const platformCourses = courses.filter(c => c.platform === platform);
+                  if (platformCourses.length === 0) return null;
+                  
+                  return (
+                    <View key={platform} style={styles.platformSection}>
+                      <Text style={styles.platformName}>{platform}</Text>
+                      {platformCourses.map((course, idx) => (
+                        <View
+                          key={idx}
+                          style={styles.courseCard}
+                        >
+                          <View style={styles.courseHeader}>
+                            <BookOpen size={20} color={Colors.primary} />
+                            <Text style={styles.courseName}>{course.name}</Text>
+                          </View>
+                          <Text style={styles.courseDescription}>{course.description}</Text>
+                          <Pressable
+                            style={styles.enrollButton}
+                            onPress={async () => {
+                              try {
+                                await Linking.openURL(course.link);
+                              } catch {
+                                Alert.alert('Error', 'Unable to open link');
+                              }
+                            }}
+                          >
+                            <ExternalLink size={16} color={Colors.white} />
+                            <Text style={styles.enrollButtonText}>Enroll Now</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -760,5 +776,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.white,
+  },
+  courseLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  courseLinkText: {
+    fontSize: 14,
+    color: Colors.primary,
+    flex: 1,
+    lineHeight: 20,
+    textDecorationLine: 'underline' as const,
   },
 });
