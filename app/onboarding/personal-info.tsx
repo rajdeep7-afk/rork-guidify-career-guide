@@ -37,8 +37,8 @@ export default function PersonalInfoScreen() {
   const [standard, setStandard] = useState(user?.standard || '');
   const [course, setCourse] = useState(user?.course || '');
   const [skills, setSkills] = useState<string[]>(user?.skills || []);
-  const [goals, setGoals] = useState(user?.goals || '');
-  const [ambitions, setAmbitions] = useState(user?.ambitions || '');
+  const [customSkills, setCustomSkills] = useState<string[]>([]);
+  const [customSkillInput, setCustomSkillInput] = useState('');
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [validYears, setValidYears] = useState<string[]>([]);
@@ -75,6 +75,20 @@ export default function PersonalInfoScreen() {
     );
   };
 
+  const addCustomSkill = () => {
+    if (customSkillInput.trim() && !skills.includes(customSkillInput.trim())) {
+      const newSkill = customSkillInput.trim();
+      setSkills(prev => [...prev, newSkill]);
+      setCustomSkills(prev => [...prev, newSkill]);
+      setCustomSkillInput('');
+    }
+  };
+
+  const removeCustomSkill = (skill: string) => {
+    setSkills(prev => prev.filter(s => s !== skill));
+    setCustomSkills(prev => prev.filter(s => s !== skill));
+  };
+
   const validateAndContinue = () => {
     const profileData = {
       ...user!,
@@ -84,8 +98,6 @@ export default function PersonalInfoScreen() {
       standard,
       course: academicLevel === 'college' ? course : undefined,
       skills,
-      goals,
-      ambitions,
     };
 
     const validation = validateProfileFn(profileData);
@@ -118,8 +130,6 @@ export default function PersonalInfoScreen() {
       course: academicLevel === 'college' ? course : undefined,
       year: academicLevel === 'college' ? standard : undefined,
       skills,
-      goals,
-      ambitions,
     };
 
     const result = profile 
@@ -325,60 +335,54 @@ export default function PersonalInfoScreen() {
               </View>
             </View>
           )}
+
+          {customSkills.length > 0 && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Your Custom Skills</Text>
+              <View style={styles.skillsGrid}>
+                {customSkills.map(skill => (
+                  <Pressable
+                    key={skill}
+                    style={[styles.skillChip, styles.customSkillChip]}
+                    onPress={() => removeCustomSkill(skill)}
+                  >
+                    <Text style={[styles.skillChipText, styles.customSkillChipText]}>
+                      {skill} ✕
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Add Custom Skill</Text>
+            <View style={styles.addSkillContainer}>
+              <TextInput
+                style={styles.customSkillInput}
+                placeholder="Type a skill not listed above..."
+                value={customSkillInput}
+                onChangeText={setCustomSkillInput}
+                onSubmitEditing={addCustomSkill}
+              />
+              <Pressable
+                style={[styles.addButton, !customSkillInput.trim() && styles.addButtonDisabled]}
+                onPress={addCustomSkill}
+                disabled={!customSkillInput.trim()}
+              >
+                <Text style={styles.addButtonText}>
+                  {customSkills.length === 0 ? 'Add+' : 'Add Another+'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
           {errors.skills && (
             <View style={styles.errorContainer}>
               <AlertCircle size={14} color={Colors.error} />
               <Text style={styles.errorText}>{errors.skills}</Text>
             </View>
           )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Goals <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, styles.textArea, errors.goals && styles.inputError]}
-              placeholder="What do you want to achieve?"
-              value={goals}
-              onChangeText={(text) => {
-                setGoals(text);
-                if (errors.goals) {
-                  setErrors(prev => ({ ...prev, goals: '' }));
-                }
-              }}
-              multiline
-            />
-            {errors.goals && (
-              <View style={styles.errorContainer}>
-                <AlertCircle size={14} color={Colors.error} />
-                <Text style={styles.errorText}>{errors.goals}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Ambitions <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, styles.textArea, errors.ambitions && styles.inputError]}
-              placeholder="What are your long-term ambitions?"
-              value={ambitions}
-              onChangeText={(text) => {
-                setAmbitions(text);
-                if (errors.ambitions) {
-                  setErrors(prev => ({ ...prev, ambitions: '' }));
-                }
-              }}
-              multiline
-            />
-            {errors.ambitions && (
-              <View style={styles.errorContainer}>
-                <AlertCircle size={14} color={Colors.error} />
-                <Text style={styles.errorText}>{errors.ambitions}</Text>
-              </View>
-            )}
-          </View>
         </View>
 
         <Pressable style={styles.continueButton} onPress={validateAndContinue}>
@@ -560,5 +564,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700' as const,
     color: Colors.white,
+  },
+  addSkillContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  customSkillInput: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  addButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  addButtonDisabled: {
+    backgroundColor: Colors.border,
+    opacity: 0.5,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  customSkillChip: {
+    backgroundColor: Colors.primary + '30',
+    borderColor: Colors.primary,
+  },
+  customSkillChipText: {
+    color: Colors.primary,
   },
 });
