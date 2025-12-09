@@ -3,9 +3,11 @@ export interface UserProfile {
   name: string;
   email: string;
   age: number;
+  institution: string;
   academicLevel: 'school' | 'college';
   standard: string;
   course?: string;
+  year?: string;
   skills: string[];
   goals: string;
   ambitions: string;
@@ -17,6 +19,16 @@ export interface UserProfile {
   googleId?: string;
   profileImage?: string;
   authProvider?: 'email' | 'google';
+}
+
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
+export interface ProfileValidation {
+  isValid: boolean;
+  errors: ValidationError[];
 }
 
 export interface PersonalityScores {

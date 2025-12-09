@@ -77,6 +77,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         email,
         name: '',
         age: 0,
+        institution: '',
         academicLevel: 'school',
         standard: '',
         skills: [],

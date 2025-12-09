@@ -14,6 +14,7 @@ import React from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import Colors from '@/constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -43,9 +44,10 @@ function FeatureCard({ title, description, icon: Icon, color, onPress }: Feature
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { profile } = useProfile();
 
-  const scores = user?.personalityScores;
+  const scores = profile?.personalityScores;
   const topStrength = scores
     ? Object.entries(scores).reduce((max, [key, value]) =>
         value > max.value ? { key, value } : max
@@ -112,7 +114,7 @@ export default function DashboardScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{user?.name || 'Student'}</Text>
+            <Text style={styles.userName}>{profile?.name || 'Student'}</Text>
           </View>
           <Pressable style={styles.profileButton} onPress={() => logout()}>
             <LogOut size={20} color={Colors.text} />
@@ -127,9 +129,11 @@ export default function DashboardScreen() {
               <User size={24} color={Colors.primary} />
               <Text style={styles.statLabel}>Academic Level</Text>
               <Text style={styles.statValue}>
-                {user?.academicLevel === 'school' ? 'School' : 'College'}
+                {profile?.academicLevel === 'school' ? 'School' : 'College'}
               </Text>
-              <Text style={styles.statSubvalue}>{user?.standard}</Text>
+              <Text style={styles.statSubvalue}>
+                {profile?.course || profile?.standard}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>

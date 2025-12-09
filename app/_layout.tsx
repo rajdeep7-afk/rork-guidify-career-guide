@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 import { trpc, trpcClient } from "@/lib/trpc";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -42,7 +43,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <AuthProvider>
-            <RootLayoutNav />
+            <ProfileProvider>
+              <RootLayoutNav />
+            </ProfileProvider>
           </AuthProvider>
         </GestureHandlerRootView>
       </QueryClientProvider>

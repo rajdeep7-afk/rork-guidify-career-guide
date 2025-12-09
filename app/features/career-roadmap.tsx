@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { generateText } from '@rork-ai/toolkit-sdk';
-import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import Colors from '@/constants/colors';
 
 interface RoadmapMilestone {
@@ -45,7 +45,7 @@ interface Course {
 
 export default function CareerRoadmapScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { profile } = useProfile();
   const [roadmap, setRoadmap] = useState<RoadmapMilestone[] | null>(null);
   const [careerInput, setCareerInput] = useState<string>('');
   const [ncvetQualifications, setNcvetQualifications] = useState<NCVETQualification[]>([]);
@@ -96,13 +96,23 @@ IMPORTANT:
 
   const roadmapMutation = useMutation({
     mutationFn: async (targetCareer: string) => {
+      console.log('[Career Roadmap] Generating roadmap for:', targetCareer);
+      console.log('[Career Roadmap] Using profile:', {
+        institution: profile?.institution,
+        academicLevel: profile?.academicLevel,
+        course: profile?.course,
+        year: profile?.year || profile?.standard,
+        skills: profile?.skills,
+      });
+      
       const prompt = `Create a detailed, step-by-step career roadmap for becoming a "${targetCareer}".
 
 User's Current Profile:
-- Academic Level: ${user?.academicLevel === 'school' ? 'School' : 'College'}
-- Standard/Year: ${user?.standard || 'Not specified'}
-${user?.course ? `- Course: ${user.course}` : ''}
-- Current Skills: ${user?.skills.join(', ') || 'Beginner level'}
+- Institution: ${profile?.institution || 'Not specified'}
+- Academic Level: ${profile?.academicLevel === 'school' ? 'School' : 'College'}
+- Standard/Year: ${profile?.year || profile?.standard || 'Not specified'}
+${profile?.course ? `- Course: ${profile.course}` : ''}
+- Current Skills: ${profile?.skills.join(', ') || 'Beginner level'}
 
 IMPORTANT: Create this roadmap SPECIFICALLY for "${targetCareer}" - use the EXACT career name provided, not a similar or related career.
 
@@ -225,15 +235,22 @@ Return ONLY valid JSON, no other text.`;
         <View style={styles.inputCard}>
           <Text style={styles.inputTitle}>Generate Career Roadmap</Text>
           <Text style={styles.inputSubtitle}>
-            Enter any career or job role to get a detailed, personalized roadmap
+            Your profile data is automatically used for personalized recommendations
           </Text>
-          {user?.careerRecommendation && (
+          {profile?.institution && (
+            <View style={styles.profileBadge}>
+              <Text style={styles.profileBadgeText}>
+                {profile.institution} • {profile.course || profile.standard}
+              </Text>
+            </View>
+          )}
+          {profile?.careerRecommendation && (
             <Pressable
               style={styles.recommendedChip}
-              onPress={() => setCareerInput(user.careerRecommendation || '')}
+              onPress={() => setCareerInput(profile.careerRecommendation || '')}
             >
               <Target size={16} color={Colors.primary} />
-              <Text style={styles.recommendedChipText}>AI Suggestion: {user.careerRecommendation}</Text>
+              <Text style={styles.recommendedChipText}>AI Suggestion: {profile.careerRecommendation}</Text>
             </Pressable>
           )}
           <TextInput
@@ -816,5 +833,17 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 20,
     textDecorationLine: 'underline' as const,
+  },
+  profileBadge: {
+    backgroundColor: Colors.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  profileBadgeText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.primary,
   },
 });

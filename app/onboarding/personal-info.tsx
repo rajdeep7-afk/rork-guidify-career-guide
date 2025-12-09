@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, GraduationCap, Briefcase, Target, BookOpen } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { ArrowLeft, BookOpen, AlertCircle } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,50 +12,65 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import Colors from '@/constants/colors';
+import {
+  getCoursesArray,
+  SCHOOL_STANDARDS,
+  getValidYearsForCourse,
+  getSuggestedSkillsForCourse,
+  LEARNING_PREFERENCES,
+} from '@/constants/validation';
 
 const ACADEMIC_LEVELS = [
   { label: 'School', value: 'school' as const },
   { label: 'College/University', value: 'college' as const },
 ];
 
-const SCHOOL_STANDARDS = ['8th', '9th', '10th', '11th', '12th'];
-const COLLEGE_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-
-const COURSES = [
-  'Engineering (B.Tech/B.E.)',
-  'Medicine (MBBS, BDS)',
-  'Computer Science (BCA, B.Sc CS)',
-  'Business (B.Com, BBA)',
-  'Law (LLB)',
-  'Architecture (B.Arch)',
-  'MBA',
-  'M.Tech',
-  'M.Sc',
-  'LLM',
-  'Other',
-];
-
-const LEARNING_PREFERENCES = [
-  { label: 'Visual Learning', icon: BookOpen },
-  { label: 'Hands-on Practice', icon: Target },
-  { label: 'Structured Courses', icon: GraduationCap },
-  { label: 'Self-paced', icon: Briefcase },
-];
-
 export default function PersonalInfoScreen() {
   const router = useRouter();
-  const { updateProfile } = useAuth();
+  const { user, updateProfile: updateAuthProfile } = useAuth();
+  const { updateProfile, validateProfile: validateProfileFn } = useProfile();
   
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [academicLevel, setAcademicLevel] = useState<'school' | 'college'>('school');
-  const [standard, setStandard] = useState('');
-  const [course, setCourse] = useState('');
-  const [skills, setSkills] = useState('');
-  const [goals, setGoals] = useState('');
-  const [ambitions, setAmbitions] = useState('');
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>([]);
+  const [name, setName] = useState(user?.name || '');
+  const [age, setAge] = useState(user?.age?.toString() || '');
+  const [institution, setInstitution] = useState(user?.institution || '');
+  const [academicLevel, setAcademicLevel] = useState<'school' | 'college'>(user?.academicLevel || 'school');
+  const [standard, setStandard] = useState(user?.standard || '');
+  const [course, setCourse] = useState(user?.course || '');
+  const [skills, setSkills] = useState<string[]>(user?.skills || []);
+  const [goals, setGoals] = useState(user?.goals || '');
+  const [ambitions, setAmbitions] = useState(user?.ambitions || '');
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>(user?.learningPreferences || []);
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [validYears, setValidYears] = useState<string[]>([]);
+  const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (course) {
+      const years = getValidYearsForCourse(course);
+      setValidYears(years);
+      
+      if (standard && !years.includes(standard)) {
+        setStandard('');
+        setErrors(prev => ({
+          ...prev,
+          standard: `Please select a valid year for ${course}`,
+        }));
+      }
+
+      const suggested = getSuggestedSkillsForCourse(course);
+      setSuggestedSkills(suggested.map(s => s.name));
+    }
+  }, [course, standard]);
+
+  useEffect(() => {
+    if (academicLevel === 'school') {
+      setCourse('');
+      setValidYears([]);
+    }
+  }, [academicLevel]);
 
   const togglePreference = (pref: string) => {
     setSelectedPreferences(prev =>
@@ -63,32 +78,76 @@ export default function PersonalInfoScreen() {
     );
   };
 
-  const handleContinue = async () => {
-    if (!name || !age || !standard || !goals || !ambitions) {
-      Alert.alert('Missing Information', 'Please fill in all required fields');
-      return;
-    }
+  const toggleSkill = (skill: string) => {
+    setSkills(prev =>
+      prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
+    );
+  };
 
-    if (academicLevel === 'college' && !course) {
-      Alert.alert('Missing Information', 'Please select your course');
-      return;
-    }
-
-    const skillsArray = skills.split(',').map(s => s.trim()).filter(s => s);
-
-    await updateProfile({
+  const validateAndContinue = () => {
+    const profileData = {
+      ...user!,
       name,
       age: parseInt(age),
+      institution,
       academicLevel,
       standard,
       course: academicLevel === 'college' ? course : undefined,
-      skills: skillsArray,
+      skills,
       goals,
       ambitions,
       learningPreferences: selectedPreferences,
-    });
+    };
 
-    router.push('/onboarding/quiz' as never);
+    const validation = validateProfileFn(profileData);
+
+    if (!validation.isValid) {
+      const errorMap: Record<string, string> = {};
+      validation.errors.forEach(err => {
+        errorMap[err.field] = err.message;
+      });
+      setErrors(errorMap);
+      
+      Alert.alert(
+        'Validation Error',
+        validation.errors[0]?.message || 'Please fix the errors and try again'
+      );
+      return;
+    }
+
+    setErrors({});
+    handleContinue();
+  };
+
+  const handleContinue = async () => {
+    const profileData = {
+      ...user!,
+      name,
+      age: parseInt(age),
+      institution,
+      academicLevel,
+      standard,
+      course: academicLevel === 'college' ? course : undefined,
+      year: academicLevel === 'college' ? standard : undefined,
+      skills,
+      goals,
+      ambitions,
+      learningPreferences: selectedPreferences,
+    };
+
+    const result = await updateProfile(profileData);
+    
+    if (result.success) {
+      await updateAuthProfile(profileData);
+      router.push('/onboarding/quiz' as never);
+    } else {
+      const errorMap: Record<string, string> = {};
+      result.errors.forEach(err => {
+        errorMap[err.field] = err.message;
+      });
+      setErrors(errorMap);
+      Alert.alert('Error', result.errors[0]?.message || 'Failed to save profile');
+    }
   };
 
   return (
@@ -111,11 +170,22 @@ export default function PersonalInfoScreen() {
               Full Name <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.name && styles.inputError]}
               placeholder="Enter your full name"
               value={name}
-              onChangeText={setName}
+              onChangeText={(text) => {
+                setName(text);
+                if (errors.name) {
+                  setErrors(prev => ({ ...prev, name: '' }));
+                }
+              }}
             />
+            {errors.name && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.name}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -123,12 +193,46 @@ export default function PersonalInfoScreen() {
               Age <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.age && styles.inputError]}
               placeholder="Enter your age"
               value={age}
-              onChangeText={setAge}
+              onChangeText={(text) => {
+                setAge(text);
+                if (errors.age) {
+                  setErrors(prev => ({ ...prev, age: '' }));
+                }
+              }}
               keyboardType="number-pad"
             />
+            {errors.age && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.age}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>
+              Institution <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.input, errors.institution && styles.inputError]}
+              placeholder="School/College name"
+              value={institution}
+              onChangeText={(text) => {
+                setInstitution(text);
+                if (errors.institution) {
+                  setErrors(prev => ({ ...prev, institution: '' }));
+                }
+              }}
+            />
+            {errors.institution && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.institution}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -160,37 +264,22 @@ export default function PersonalInfoScreen() {
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              {academicLevel === 'school' ? 'Standard' : 'Year'}{' '}
-              <Text style={styles.required}>*</Text>
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {(academicLevel === 'school' ? SCHOOL_STANDARDS : COLLEGE_YEARS).map(std => (
-                <Pressable
-                  key={std}
-                  style={[styles.chip, standard === std && styles.chipActive]}
-                  onPress={() => setStandard(std)}
-                >
-                  <Text style={[styles.chipText, standard === std && styles.chipTextActive]}>
-                    {std}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-
           {academicLevel === 'college' && (
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Course <Text style={styles.required}>*</Text>
               </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {COURSES.map(c => (
+                {getCoursesArray().map(c => (
                   <Pressable
                     key={c}
                     style={[styles.chip, course === c && styles.chipActive]}
-                    onPress={() => setCourse(c)}
+                    onPress={() => {
+                      setCourse(c);
+                      if (errors.course) {
+                        setErrors(prev => ({ ...prev, course: '' }));
+                      }
+                    }}
                   >
                     <Text style={[styles.chipText, course === c && styles.chipTextActive]}>
                       {c}
@@ -198,35 +287,102 @@ export default function PersonalInfoScreen() {
                   </Pressable>
                 ))}
               </ScrollView>
+              {errors.course && (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={14} color={Colors.error} />
+                  <Text style={styles.errorText}>{errors.course}</Text>
+                </View>
+              )}
             </View>
           )}
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>
+              {academicLevel === 'school' ? 'Standard' : 'Year'}{' '}
+              <Text style={styles.required}>*</Text>
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+              {(academicLevel === 'school' ? SCHOOL_STANDARDS : validYears).map(std => (
+                <Pressable
+                  key={std}
+                  style={[styles.chip, standard === std && styles.chipActive]}
+                  onPress={() => {
+                    setStandard(std);
+                    if (errors.standard) {
+                      setErrors(prev => ({ ...prev, standard: '' }));
+                    }
+                  }}
+                >
+                  <Text style={[styles.chipText, standard === std && styles.chipTextActive]}>
+                    {std}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            {errors.standard && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.standard}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Skills & Interests</Text>
           
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Skills (comma-separated)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="e.g., Python, Design, Writing"
-              value={skills}
-              onChangeText={setSkills}
-              multiline
-            />
-          </View>
+          {suggestedSkills.length > 0 && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Suggested Skills for {course}</Text>
+              <View style={styles.skillsGrid}>
+                {suggestedSkills.map(skill => (
+                  <Pressable
+                    key={skill}
+                    style={[styles.skillChip, skills.includes(skill) && styles.skillChipActive]}
+                    onPress={() => toggleSkill(skill)}
+                  >
+                    <Text
+                      style={[
+                        styles.skillChipText,
+                        skills.includes(skill) && styles.skillChipTextActive,
+                      ]}
+                    >
+                      {skill}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+          {errors.skills && (
+            <View style={styles.errorContainer}>
+              <AlertCircle size={14} color={Colors.error} />
+              <Text style={styles.errorText}>{errors.skills}</Text>
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
               Goals <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.textArea, errors.goals && styles.inputError]}
               placeholder="What do you want to achieve?"
               value={goals}
-              onChangeText={setGoals}
+              onChangeText={(text) => {
+                setGoals(text);
+                if (errors.goals) {
+                  setErrors(prev => ({ ...prev, goals: '' }));
+                }
+              }}
               multiline
             />
+            {errors.goals && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.goals}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -234,12 +390,23 @@ export default function PersonalInfoScreen() {
               Ambitions <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.textArea, errors.ambitions && styles.inputError]}
               placeholder="What are your long-term ambitions?"
               value={ambitions}
-              onChangeText={setAmbitions}
+              onChangeText={(text) => {
+                setAmbitions(text);
+                if (errors.ambitions) {
+                  setErrors(prev => ({ ...prev, ambitions: '' }));
+                }
+              }}
               multiline
             />
+            {errors.ambitions && (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={14} color={Colors.error} />
+                <Text style={styles.errorText}>{errors.ambitions}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -247,37 +414,40 @@ export default function PersonalInfoScreen() {
           <Text style={styles.sectionTitle}>Learning Preferences</Text>
           
           <View style={styles.preferencesGrid}>
-            {LEARNING_PREFERENCES.map(pref => (
-              <Pressable
-                key={pref.label}
-                style={[
-                  styles.preferenceCard,
-                  selectedPreferences.includes(pref.label) && styles.preferenceCardActive,
-                ]}
-                onPress={() => togglePreference(pref.label)}
-              >
-                <pref.icon
-                  size={24}
-                  color={
-                    selectedPreferences.includes(pref.label)
-                      ? Colors.primary
-                      : Colors.textSecondary
-                  }
-                />
-                <Text
+            {LEARNING_PREFERENCES.map(pref => {
+              const IconComponent = BookOpen;
+              return (
+                <Pressable
+                  key={pref}
                   style={[
-                    styles.preferenceText,
-                    selectedPreferences.includes(pref.label) && styles.preferenceTextActive,
+                    styles.preferenceCard,
+                    selectedPreferences.includes(pref) && styles.preferenceCardActive,
                   ]}
+                  onPress={() => togglePreference(pref)}
                 >
-                  {pref.label}
-                </Text>
-              </Pressable>
-            ))}
+                  <IconComponent
+                    size={24}
+                    color={
+                      selectedPreferences.includes(pref)
+                        ? Colors.primary
+                        : Colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.preferenceText,
+                      selectedPreferences.includes(pref) && styles.preferenceTextActive,
+                    ]}
+                  >
+                    {pref}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
-        <Pressable style={styles.continueButton} onPress={handleContinue}>
+        <Pressable style={styles.continueButton} onPress={validateAndContinue}>
           <Text style={styles.continueButtonText}>Continue to Quiz</Text>
         </Pressable>
       </ScrollView>
@@ -354,9 +524,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  inputError: {
+    borderColor: Colors.error,
+    borderWidth: 2,
+  },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    color: Colors.error,
+    flex: 1,
   },
   segmentedControl: {
     flexDirection: 'row',
@@ -404,6 +589,31 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: Colors.white,
+  },
+  skillsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  skillChipActive: {
+    backgroundColor: Colors.primary + '20',
+    borderColor: Colors.primary,
+  },
+  skillChipText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+  },
+  skillChipTextActive: {
+    color: Colors.primary,
   },
   preferencesGrid: {
     flexDirection: 'row',
