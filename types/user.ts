@@ -3,14 +3,7 @@ export interface UserProfile {
   name: string;
   email: string;
   age: number;
-  institution: string;
-  academicLevel: 'school' | 'college';
-  standard: string;
-  course?: string;
-  year?: string;
   skills: string[];
-  goals: string;
-  ambitions: string;
   learningPreferences: string[];
   personalityScores?: PersonalityScores;
   careerRecommendation?: string;

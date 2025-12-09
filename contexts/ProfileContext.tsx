@@ -34,8 +34,7 @@ export const [ProfileProvider, useProfile] = createContextHook(() => {
         if (userProfile) {
           console.log('[ProfileContext] Profile loaded successfully:', {
             name: userProfile.name,
-            course: userProfile.course,
-            standard: userProfile.standard,
+            skills: userProfile.skills?.length || 0,
           });
           setProfile(userProfile);
         } else {
@@ -54,8 +53,7 @@ export const [ProfileProvider, useProfile] = createContextHook(() => {
       setIsSyncing(true);
       console.log('[ProfileContext] Saving profile...', {
         name: updatedProfile.name,
-        course: updatedProfile.course,
-        standard: updatedProfile.standard,
+        skills: updatedProfile.skills?.length || 0,
       });
 
       const currentEmail = await AsyncStorage.getItem('@guidify_current_user');

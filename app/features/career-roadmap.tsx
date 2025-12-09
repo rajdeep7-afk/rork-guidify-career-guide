@@ -72,8 +72,6 @@ export default function CareerRoadmapScreen() {
 
 ### User Profile:
 **Name:** ${profile.name}
-**Academic Level:** ${profile.academicLevel === 'school' ? 'School' : 'College'}
-**Standard/Year:** ${profile.standard || profile.year || profile.course || 'Not specified'}
 **Current Skills:** ${profile.skills?.length > 0 ? profile.skills.join(', ') : 'No specific skills listed yet'}
 
 ### Personality Radar Scores (0-100):
@@ -172,20 +170,14 @@ IMPORTANT:
     mutationFn: async (targetCareer: string) => {
       console.log('[Career Roadmap] Generating roadmap for:', targetCareer);
       console.log('[Career Roadmap] Using profile:', {
-        institution: profile?.institution,
-        academicLevel: profile?.academicLevel,
-        course: profile?.course,
-        year: profile?.year || profile?.standard,
+        name: profile?.name,
         skills: profile?.skills,
       });
       
       const prompt = `Create a detailed, step-by-step career roadmap for becoming a "${targetCareer}".
 
 User's Current Profile:
-- Institution: ${profile?.institution || 'Not specified'}
-- Academic Level: ${profile?.academicLevel === 'school' ? 'School' : 'College'}
-- Standard/Year: ${profile?.year || profile?.standard || 'Not specified'}
-${profile?.course ? `- Course: ${profile.course}` : ''}
+- Name: ${profile?.name || 'User'}
 - Current Skills: ${profile?.skills.join(', ') || 'Beginner level'}
 
 IMPORTANT: Create this roadmap SPECIFICALLY for "${targetCareer}" - use the EXACT career name provided, not a similar or related career.
@@ -436,10 +428,10 @@ Return ONLY valid JSON, no other text.`;
           <Text style={styles.inputSubtitle}>
             Your profile data is automatically used for personalized recommendations
           </Text>
-          {profile?.institution && (
+          {profile?.skills && profile.skills.length > 0 && (
             <View style={styles.profileBadge}>
               <Text style={styles.profileBadgeText}>
-                {profile.institution} • {profile.course || profile.standard}
+                {profile.skills.length} skills tracked
               </Text>
             </View>
           )}

@@ -22,10 +22,10 @@ interface Question {
   question: string;
   options: string[];
   correctAnswer: number;
+  difficulty: 'easy' | 'medium' | 'hard';
 }
 
 type TestMode = 'select' | 'configure' | 'testing' | 'results';
-type StudyLevel = 'school' | 'college';
 
 export default function AptitudeTestScreen() {
   const router = useRouter();
@@ -34,9 +34,6 @@ export default function AptitudeTestScreen() {
   const [mode, setMode] = useState<TestMode>('select');
   const [testType, setTestType] = useState<'subject' | 'resume'>('subject');
   
-  const [studyLevel, setStudyLevel] = useState<StudyLevel>('school');
-  const [standard, setStandard] = useState('');
-  const [course, setCourse] = useState('');
   const [subject, setSubject] = useState('');
   
   const [resumeFile, setResumeFile] = useState<{ name: string; uri: string; content?: string } | null>(null);
@@ -47,21 +44,9 @@ export default function AptitudeTestScreen() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
-
-  const schoolStandards = ['8th', '9th', '10th', '11th', '12th'];
-  const collegeYears = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-  const courses = [
-    'Engineering (B.Tech/B.E.)',
-    'Medicine (MBBS, BDS)',
-    'Computer Science (BCA, B.Sc CS)',
-    'Business (B.Com, BBA)',
-    'Law (LLB)',
-    'Architecture (B.Arch)',
-    'MBA',
-    'M.Tech',
-    'M.Sc',
-    'LLM',
-  ];
+  const [currentDifficulty, setCurrentDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [correctStreak, setCorrectStreak] = useState(0);
+  const [incorrectStreak, setIncorrectStreak] = useState(0);
 
   const pickDocument = async () => {
     try {
@@ -155,65 +140,61 @@ Example: If resume mentions "Java, Python, JavaScript, SQL, ReactJS, Docker, Git
     }
   };
 
-  const generateResumeQuestions = useMutation({
-    mutationFn: async () => {
-      if (extractedSkills.length === 0) {
-        throw new Error('No skills extracted from resume');
-      }
+  const generateAdaptiveQuestion = useMutation({
+    mutationFn: async (difficulty: 'easy' | 'medium' | 'hard') => {
+      const topicBase = testType === 'subject' ? subject : extractedSkills.join(', ');
+      
+      const prompt = `Generate exactly 1 multiple-choice question about "${topicBase}" at ${difficulty} difficulty level.
 
-      const skillsList = extractedSkills.join(', ');
-      const prompt = `Generate exactly 10 multiple-choice questions based on these skills and domains: ${skillsList}.
+Difficulty Guidelines:
+- Easy: Basic concepts, definitions, simple recall
+- Medium: Application of concepts, moderate problem-solving
+- Hard: Complex scenarios, advanced analysis, deep understanding
 
-The questions should test practical knowledge in these areas and be appropriate for someone with these skills on their resume.
-
-Generate 10 questions with 4 options each. Format as JSON array:
-[
-  {
-    "question": "Question text here?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": 0
-  }
-]
+Generate 1 question with 4 options. Format as JSON:
+{
+  "question": "Question text here?",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "correctAnswer": 0,
+  "difficulty": "${difficulty}"
+}
 
 correctAnswer is the index (0-3) of the correct option.
 Return ONLY valid JSON, no other text.`;
 
       const response = await generateText(prompt);
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Invalid response format');
       
-      const parsed = JSON.parse(jsonMatch[0]) as Question[];
-      if (parsed.length !== 10) throw new Error('Expected 10 questions');
-      
+      const parsed = JSON.parse(jsonMatch[0]) as Question;
       return parsed;
     },
     onSuccess: (data) => {
-      setQuestions(data);
-      setMode('testing');
-      setCurrentQuestion(0);
-      setAnswers({});
+      setQuestions(prev => [...prev, data]);
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to generate questions. Please try again.');
+      Alert.alert('Error', 'Failed to generate question. Please try again.');
     },
   });
 
-  const generateMutation = useMutation({
+  const generateInitialQuestions = useMutation({
     mutationFn: async () => {
-      const prompt = `Generate exactly 10 multiple-choice questions for a ${studyLevel === 'school' ? 'school' : 'college'} student.
+      const topicBase = testType === 'subject' ? subject : extractedSkills.join(', ');
+      
+      const prompt = `Generate exactly 10 multiple-choice questions about "${topicBase}" with adaptive difficulty.
 
-Study Level: ${studyLevel === 'school' ? 'School' : 'College'}
-${studyLevel === 'school' ? `Standard: ${standard}` : `Year: ${standard}, Course: ${course}`}
-Subject/Topic: ${subject}
-
-IMPORTANT: Questions must be strictly about "${subject}" and appropriate for ${standard} ${studyLevel === 'school' ? 'standard' : 'year'}.
+Create a mix of difficulties:
+- 3 easy questions (basic concepts)
+- 4 medium questions (application)
+- 3 hard questions (advanced)
 
 Generate 10 questions with 4 options each. Format as JSON array:
 [
   {
     "question": "Question text here?",
     "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": 0
+    "correctAnswer": 0,
+    "difficulty": "easy"
   }
 ]
 
@@ -234,6 +215,9 @@ Return ONLY valid JSON, no other text.`;
       setMode('testing');
       setCurrentQuestion(0);
       setAnswers({});
+      setCurrentDifficulty('medium');
+      setCorrectStreak(0);
+      setIncorrectStreak(0);
     },
     onError: () => {
       Alert.alert('Error', 'Failed to generate questions. Please try again.');
@@ -242,15 +226,11 @@ Return ONLY valid JSON, no other text.`;
 
   const handleStart = () => {
     if (testType === 'subject') {
-      if (!standard || !subject.trim()) {
-        Alert.alert('Missing Information', 'Please fill in all fields');
+      if (!subject.trim()) {
+        Alert.alert('Missing Information', 'Please enter a subject');
         return;
       }
-      if (studyLevel === 'college' && !course) {
-        Alert.alert('Missing Information', 'Please select your course');
-        return;
-      }
-      generateMutation.mutate();
+      generateInitialQuestions.mutate();
     } else {
       if (!resumeFile) {
         Alert.alert('Missing Resume', 'Please upload your resume first');
@@ -260,16 +240,45 @@ Return ONLY valid JSON, no other text.`;
         Alert.alert('Processing', 'Please wait while we process your resume');
         return;
       }
-      generateResumeQuestions.mutate();
+      generateInitialQuestions.mutate();
     }
   };
 
   const handleAnswer = (optionIndex: number) => {
     setAnswers(prev => ({ ...prev, [currentQuestion]: optionIndex }));
+    
+    const question = questions[currentQuestion];
+    const isCorrect = optionIndex === question.correctAnswer;
+    
+    if (isCorrect) {
+      const newStreak = correctStreak + 1;
+      setCorrectStreak(newStreak);
+      setIncorrectStreak(0);
+      
+      if (newStreak >= 2 && currentDifficulty !== 'hard') {
+        const nextDifficulty = currentDifficulty === 'easy' ? 'medium' : 'hard';
+        setCurrentDifficulty(nextDifficulty);
+        console.log(`Increasing difficulty to ${nextDifficulty} (${newStreak} correct in a row)`);
+      }
+    } else {
+      const newStreak = incorrectStreak + 1;
+      setIncorrectStreak(newStreak);
+      setCorrectStreak(0);
+      
+      if (newStreak >= 2 && currentDifficulty !== 'easy') {
+        const nextDifficulty = currentDifficulty === 'hard' ? 'medium' : 'easy';
+        setCurrentDifficulty(nextDifficulty);
+        console.log(`Decreasing difficulty to ${nextDifficulty} (${newStreak} incorrect in a row)`);
+      }
+    }
   };
 
   const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(prev => prev + 1);
+    } else if (currentQuestion === questions.length - 1 && questions.length < 15) {
+      console.log(`Generating next question at ${currentDifficulty} difficulty`);
+      generateAdaptiveQuestion.mutate(currentDifficulty);
       setCurrentQuestion(prev => prev + 1);
     }
   };
@@ -339,7 +348,7 @@ Return ONLY valid JSON, no other text.`;
               Subject-Based Test
             </Text>
             <Text style={styles.testTypeDescription}>
-              Take a test on a specific subject based on your academic level
+              Take a test on a specific subject with AI-adaptive difficulty
             </Text>
           </Pressable>
 
@@ -380,7 +389,7 @@ Return ONLY valid JSON, no other text.`;
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <Text style={styles.pageTitle}>Upload Your Resume</Text>
             <Text style={styles.pageSubtitle}>
-              We&apos;ll analyze your resume and create a personalized test based on your skills
+              We&apos;ll analyze your resume and create a personalized adaptive test
             </Text>
 
             {!resumeFile ? (
@@ -429,7 +438,7 @@ Return ONLY valid JSON, no other text.`;
                       ))}
                     </View>
                     <Text style={styles.skillsNote}>
-                      Questions will be generated based on these skills
+                      Questions will adapt based on your performance
                     </Text>
                   </View>
                 )}
@@ -438,17 +447,17 @@ Return ONLY valid JSON, no other text.`;
                   style={({ pressed }) => [
                     styles.startButton,
                     pressed && styles.buttonPressed,
-                    (isProcessingResume || generateResumeQuestions.isPending) && styles.buttonDisabled,
+                    (isProcessingResume || generateInitialQuestions.isPending) && styles.buttonDisabled,
                   ]}
                   onPress={handleStart}
-                  disabled={isProcessingResume || generateResumeQuestions.isPending || extractedSkills.length === 0}
+                  disabled={isProcessingResume || generateInitialQuestions.isPending || extractedSkills.length === 0}
                 >
                   <Text style={styles.startButtonText}>
-                    {generateResumeQuestions.isPending
+                    {generateInitialQuestions.isPending
                       ? 'Generating Questions...'
                       : isProcessingResume
                       ? 'Processing Resume...'
-                      : 'Start Test'}
+                      : 'Start Adaptive Test'}
                   </Text>
                 </Pressable>
               </View>
@@ -471,75 +480,22 @@ Return ONLY valid JSON, no other text.`;
         </SafeAreaView>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Where do you study?</Text>
-            <View style={styles.segmentedControl}>
-              <Pressable
-                style={[styles.segment, studyLevel === 'school' && styles.segmentActive]}
-                onPress={() => setStudyLevel('school')}
-              >
-                <Text style={[styles.segmentText, studyLevel === 'school' && styles.segmentTextActive]}>
-                  School
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.segment, studyLevel === 'college' && styles.segmentActive]}
-                onPress={() => setStudyLevel('college')}
-              >
-                <Text style={[styles.segmentText, studyLevel === 'college' && styles.segmentTextActive]}>
-                  College
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+          <Text style={styles.pageTitle}>Subject-Based Test</Text>
+          <Text style={styles.pageSubtitle}>
+            Enter the subject you want to test. Difficulty will adapt based on your performance.
+          </Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{studyLevel === 'school' ? 'Standard' : 'Year'}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-              {(studyLevel === 'school' ? schoolStandards : collegeYears).map(std => (
-                <Pressable
-                  key={std}
-                  style={[styles.chip, standard === std && styles.chipActive]}
-                  onPress={() => setStandard(std)}
-                >
-                  <Text style={[styles.chipText, standard === std && styles.chipTextActive]}>
-                    {std}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-
-          {studyLevel === 'college' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Course</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
-                {courses.map(c => (
-                  <Pressable
-                    key={c}
-                    style={[styles.chip, course === c && styles.chipActive]}
-                    onPress={() => setCourse(c)}
-                  >
-                    <Text style={[styles.chipText, course === c && styles.chipTextActive]}>
-                      {c}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Subject/Topic</Text>
+            <Text style={styles.label}>Which subject do you want to give the test for?</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter exact subject (e.g., Computer Architecture, Physics)"
+              placeholder="Enter subject (e.g., Mathematics, Physics, Computer Science)"
               value={subject}
               onChangeText={setSubject}
               multiline
             />
             <Text style={styles.hint}>
-              Be specific! Questions will be generated strictly based on this subject.
+              The test will start at medium difficulty and adjust automatically based on your answers.
             </Text>
           </View>
 
@@ -547,13 +503,13 @@ Return ONLY valid JSON, no other text.`;
             style={({ pressed }) => [
               styles.startButton,
               pressed && styles.buttonPressed,
-              generateMutation.isPending && styles.buttonDisabled,
+              generateInitialQuestions.isPending && styles.buttonDisabled,
             ]}
             onPress={handleStart}
-            disabled={generateMutation.isPending}
+            disabled={generateInitialQuestions.isPending}
           >
             <Text style={styles.startButtonText}>
-              {generateMutation.isPending ? 'Generating Questions...' : 'Start Test'}
+              {generateInitialQuestions.isPending ? 'Generating Questions...' : 'Start Adaptive Test'}
             </Text>
           </Pressable>
         </ScrollView>
@@ -562,8 +518,27 @@ Return ONLY valid JSON, no other text.`;
   }
 
   if (mode === 'testing' && !showResults) {
+    if (generateAdaptiveQuestion.isPending || currentQuestion >= questions.length) {
+      return (
+        <View style={styles.container}>
+          <SafeAreaView style={styles.safeArea} edges={['top']}>
+            <View style={styles.header}>
+              <View style={styles.placeholder} />
+              <Text style={styles.headerTitle}>Loading...</Text>
+              <View style={styles.placeholder} />
+            </View>
+          </SafeAreaView>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Generating next question...</Text>
+            <Text style={styles.loadingSubtext}>Difficulty: {currentDifficulty}</Text>
+          </View>
+        </View>
+      );
+    }
+
     const question = questions[currentQuestion];
-    const progress = ((currentQuestion + 1) / questions.length) * 100;
+    const progress = ((currentQuestion + 1) / Math.max(questions.length, 10)) * 100;
 
     return (
       <View style={styles.container}>
@@ -581,7 +556,7 @@ Return ONLY valid JSON, no other text.`;
               <X size={24} color={Colors.error} />
             </Pressable>
             <Text style={styles.questionCount}>
-              {currentQuestion + 1} / {questions.length}
+              {currentQuestion + 1} / {Math.max(questions.length, 10)}
             </Text>
             <View style={styles.placeholder} />
           </View>
@@ -592,6 +567,10 @@ Return ONLY valid JSON, no other text.`;
         </SafeAreaView>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.difficultyBadge}>
+            <Text style={styles.difficultyText}>Difficulty: {question.difficulty}</Text>
+          </View>
+
           <Text style={styles.questionNumber}>Question {currentQuestion + 1}</Text>
           <Text style={styles.questionText}>{question.question}</Text>
 
@@ -633,12 +612,16 @@ Return ONLY valid JSON, no other text.`;
               <Text style={styles.navButtonText}>Previous</Text>
             </Pressable>
 
-            {currentQuestion === questions.length - 1 ? (
+            {currentQuestion >= 9 ? (
               <Pressable style={styles.submitButton} onPress={handleSubmit}>
                 <Text style={styles.submitButtonText}>Submit Test</Text>
               </Pressable>
             ) : (
-              <Pressable style={styles.nextButton} onPress={handleNext}>
+              <Pressable 
+                style={[styles.nextButton, !answers[currentQuestion] && styles.navButtonDisabled]} 
+                onPress={handleNext}
+                disabled={answers[currentQuestion] === undefined}
+              >
                 <Text style={styles.nextButtonText}>Next</Text>
               </Pressable>
             )}
@@ -697,6 +680,10 @@ Return ONLY valid JSON, no other text.`;
               <Text style={styles.statLabel}>Score:</Text>
               <Text style={styles.statValue}>{results.percentage}%</Text>
             </View>
+            <View style={styles.statRow}>
+              <Text style={styles.statLabel}>AI Adaptation:</Text>
+              <Text style={styles.statValue}>Enabled</Text>
+            </View>
           </View>
 
           <Text style={styles.reviewTitle}>Review Answers</Text>
@@ -719,6 +706,9 @@ Return ONLY valid JSON, no other text.`;
                       <Text style={[styles.resultBadgeText, { color: Colors.error }]}>Incorrect</Text>
                     </View>
                   )}
+                </View>
+                <View style={styles.difficultyBadgeSmall}>
+                  <Text style={styles.difficultyTextSmall}>{q.difficulty}</Text>
                 </View>
                 <Text style={styles.reviewQuestion}>{q.question}</Text>
                 {userAnswer !== undefined && (
@@ -799,6 +789,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     marginBottom: 24,
+    lineHeight: 22,
   },
   testTypeCard: {
     backgroundColor: Colors.surface,
@@ -828,20 +819,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 20,
   },
-  comingSoonBadge: {
-    position: 'absolute' as const,
-    top: 12,
-    right: 12,
-    backgroundColor: Colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  comingSoonText: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: Colors.white,
-  },
   inputGroup: {
     marginBottom: 24,
   },
@@ -850,53 +827,6 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
     color: Colors.text,
     marginBottom: 12,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 4,
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  segmentActive: {
-    backgroundColor: Colors.primary,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.textSecondary,
-  },
-  segmentTextActive: {
-    color: Colors.white,
-  },
-  chipScroll: {
-    marginHorizontal: -4,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    marginHorizontal: 4,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: Colors.textSecondary,
-  },
-  chipTextActive: {
-    color: Colors.white,
   },
   input: {
     backgroundColor: Colors.surface,
@@ -950,6 +880,34 @@ const styles = StyleSheet.create({
   progressBar: {
     height: '100%',
     backgroundColor: Colors.primary,
+  },
+  difficultyBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.secondary + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: Colors.secondary,
+    textTransform: 'capitalize' as const,
+  },
+  difficultyBadgeSmall: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.primary + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  difficultyTextSmall: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+    textTransform: 'capitalize' as const,
   },
   questionNumber: {
     fontSize: 14,
@@ -1275,5 +1233,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     fontStyle: 'italic' as const,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
 });

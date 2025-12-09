@@ -43,8 +43,6 @@ export default function QuizResultsScreen() {
 
 ### User Profile:
 **Name:** ${user.name}
-**Academic Level:** ${user.academicLevel === 'school' ? 'School' : 'College'}
-**Standard/Year:** ${user.standard || user.year || user.course || 'Not specified'}
 **Current Skills:** ${user.skills?.length > 0 ? user.skills.join(', ') : 'No specific skills listed yet'}
 
 ### Personality Analysis Scores (0-100):

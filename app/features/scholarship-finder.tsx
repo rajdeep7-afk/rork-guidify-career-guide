@@ -68,10 +68,8 @@ export default function ScholarshipFinderScreen() {
       const prompt = `Based on the following student profile and filters, recommend 15 suitable scholarships (mix of Government and Private).
 
 Student Profile:
-- Academic Level: ${user.academicLevel === 'school' ? 'School' : 'College'}
-- Standard/Year: ${user.standard}
-${user.course ? `- Course: ${user.course}` : ''}
 - Career Recommendation: ${user.careerRecommendation || 'Not specified'}
+- Skills: ${user.skills?.join(', ') || 'General skills'}
 
 User Filters:
 - State: ${state || 'Not specified'}

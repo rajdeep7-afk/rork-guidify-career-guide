@@ -41,15 +41,11 @@ export default function JobFinderScreen() {
     mutationFn: async () => {
       if (!user) throw new Error('No user profile found');
 
-      const isStudent = user.academicLevel === 'school' || 
-                       (user.academicLevel === 'college' && ['1st Year', '2nd Year', '3rd Year'].includes(user.standard));
+      const isStudent = user.age && user.age < 22;
 
       const prompt = `Generate 12 realistic job/internship recommendations for this candidate.
 
 Candidate Profile:
-- Academic Level: ${user.academicLevel === 'school' ? 'School' : 'College'}
-- Year: ${user.standard}
-${user.course ? `- Course: ${user.course}` : ''}
 - Career Direction: ${user.careerRecommendation || 'Not specified'}
 - Skills: ${user.skills.join(', ') || 'General skills'}
 - Experience: ${isStudent ? 'Student/Fresher' : 'Some experience'}

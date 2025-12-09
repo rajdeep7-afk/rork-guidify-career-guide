@@ -127,12 +127,12 @@ export default function DashboardScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <User size={24} color={Colors.primary} />
-              <Text style={styles.statLabel}>Academic Level</Text>
+              <Text style={styles.statLabel}>Skills</Text>
               <Text style={styles.statValue}>
-                {profile?.academicLevel === 'school' ? 'School' : 'College'}
+                {profile?.skills?.length || 0}
               </Text>
               <Text style={styles.statSubvalue}>
-                {profile?.course || profile?.standard}
+                Skills Tracked
               </Text>
             </View>
             <View style={styles.statDivider} />

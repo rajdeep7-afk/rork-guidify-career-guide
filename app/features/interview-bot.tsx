@@ -51,7 +51,6 @@ export default function InterviewBotScreen() {
 
 User Profile:
 - Career Goal: ${user?.careerRecommendation || 'Not specified'}
-- Academic Level: ${user?.academicLevel === 'school' ? 'School' : 'College'}
 - Skills: ${user?.skills.join(', ') || 'General'}
 
 Question types:
