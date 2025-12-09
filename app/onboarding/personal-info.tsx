@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, AlertCircle } from 'lucide-react-native';
+import { ArrowLeft, AlertCircle } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
@@ -19,7 +19,6 @@ import {
   SCHOOL_STANDARDS,
   getValidYearsForCourse,
   getSuggestedSkillsForCourse,
-  LEARNING_PREFERENCES,
 } from '@/constants/validation';
 
 const ACADEMIC_LEVELS = [
@@ -34,14 +33,12 @@ export default function PersonalInfoScreen() {
   
   const [name, setName] = useState(user?.name || '');
   const [age, setAge] = useState(user?.age?.toString() || '');
-  const [institution, setInstitution] = useState(user?.institution || '');
   const [academicLevel, setAcademicLevel] = useState<'school' | 'college'>(user?.academicLevel || 'school');
   const [standard, setStandard] = useState(user?.standard || '');
   const [course, setCourse] = useState(user?.course || '');
   const [skills, setSkills] = useState<string[]>(user?.skills || []);
   const [goals, setGoals] = useState(user?.goals || '');
   const [ambitions, setAmbitions] = useState(user?.ambitions || '');
-  const [selectedPreferences, setSelectedPreferences] = useState<string[]>(user?.learningPreferences || []);
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [validYears, setValidYears] = useState<string[]>([]);
@@ -72,12 +69,6 @@ export default function PersonalInfoScreen() {
     }
   }, [academicLevel]);
 
-  const togglePreference = (pref: string) => {
-    setSelectedPreferences(prev =>
-      prev.includes(pref) ? prev.filter(p => p !== pref) : [...prev, pref]
-    );
-  };
-
   const toggleSkill = (skill: string) => {
     setSkills(prev =>
       prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
@@ -89,14 +80,12 @@ export default function PersonalInfoScreen() {
       ...user!,
       name,
       age: parseInt(age),
-      institution,
       academicLevel,
       standard,
       course: academicLevel === 'college' ? course : undefined,
       skills,
       goals,
       ambitions,
-      learningPreferences: selectedPreferences,
     };
 
     const validation = validateProfileFn(profileData);
@@ -124,7 +113,6 @@ export default function PersonalInfoScreen() {
       ...user!,
       name,
       age: parseInt(age),
-      institution,
       academicLevel,
       standard,
       course: academicLevel === 'college' ? course : undefined,
@@ -132,7 +120,6 @@ export default function PersonalInfoScreen() {
       skills,
       goals,
       ambitions,
-      learningPreferences: selectedPreferences,
     };
 
     const result = await updateProfile(profileData);
@@ -212,28 +199,6 @@ export default function PersonalInfoScreen() {
             )}
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Institution <Text style={styles.required}>*</Text>
-            </Text>
-            <TextInput
-              style={[styles.input, errors.institution && styles.inputError]}
-              placeholder="School/College name"
-              value={institution}
-              onChangeText={(text) => {
-                setInstitution(text);
-                if (errors.institution) {
-                  setErrors(prev => ({ ...prev, institution: '' }));
-                }
-              }}
-            />
-            {errors.institution && (
-              <View style={styles.errorContainer}>
-                <AlertCircle size={14} color={Colors.error} />
-                <Text style={styles.errorText}>{errors.institution}</Text>
-              </View>
-            )}
-          </View>
         </View>
 
         <View style={styles.section}>
@@ -410,43 +375,6 @@ export default function PersonalInfoScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Learning Preferences</Text>
-          
-          <View style={styles.preferencesGrid}>
-            {LEARNING_PREFERENCES.map(pref => {
-              const IconComponent = BookOpen;
-              return (
-                <Pressable
-                  key={pref}
-                  style={[
-                    styles.preferenceCard,
-                    selectedPreferences.includes(pref) && styles.preferenceCardActive,
-                  ]}
-                  onPress={() => togglePreference(pref)}
-                >
-                  <IconComponent
-                    size={24}
-                    color={
-                      selectedPreferences.includes(pref)
-                        ? Colors.primary
-                        : Colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.preferenceText,
-                      selectedPreferences.includes(pref) && styles.preferenceTextActive,
-                    ]}
-                  >
-                    {pref}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
         <Pressable style={styles.continueButton} onPress={validateAndContinue}>
           <Text style={styles.continueButtonText}>Continue to Quiz</Text>
         </Pressable>
@@ -613,35 +541,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   skillChipTextActive: {
-    color: Colors.primary,
-  },
-  preferencesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -8,
-  },
-  preferenceCard: {
-    width: '47%',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    margin: 8,
-    borderWidth: 2,
-    borderColor: Colors.border,
-  },
-  preferenceCardActive: {
-    backgroundColor: Colors.surfaceLight,
-    borderColor: Colors.primary,
-  },
-  preferenceText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  preferenceTextActive: {
     color: Colors.primary,
   },
   continueButton: {
