@@ -26,6 +26,7 @@ export interface PersonalityScores {
   literacy: number;
   communication: number;
   problemSolving: number;
+  leadership: number;
 }
 
 export interface QuizQuestion {
