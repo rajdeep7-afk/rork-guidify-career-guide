@@ -12,6 +12,9 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 const SWIPE_THRESHOLD = 100;
 
+const RESPONSIVE_FONT_SIZE = SCREEN_WIDTH < 350 ? 20 : SCREEN_WIDTH < 380 ? 22 : 24;
+const RESPONSIVE_LINE_HEIGHT = RESPONSIVE_FONT_SIZE * 1.4;
+
 const SWIPE_DIRECTIONS = {
   RIGHT: { value: 3, emoji: '😀', color: '#10b981' },
   LEFT: { value: 0, emoji: '😒', color: '#ef4444' },
@@ -452,13 +455,13 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: CARD_WIDTH,
-    height: SCREEN_HEIGHT * 0.5,
+    minHeight: SCREEN_HEIGHT * 0.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
   card: {
     width: '100%',
-    height: '100%',
+    minHeight: SCREEN_HEIGHT * 0.5,
     backgroundColor: Colors.white,
     borderRadius: 32,
     shadowColor: '#000',
@@ -469,7 +472,8 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flex: 1,
-    padding: 32,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
     justifyContent: 'space-between',
   },
   questionNumberBadge: {
@@ -485,14 +489,16 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   cardQuestion: {
-    fontSize: 26,
+    fontSize: RESPONSIVE_FONT_SIZE,
     fontWeight: '700' as const,
     color: Colors.text,
-    lineHeight: 36,
+    lineHeight: RESPONSIVE_LINE_HEIGHT,
     textAlign: 'center',
-    flex: 1,
-    marginVertical: 24,
-    textAlignVertical: 'center',
+    flexGrow: 1,
+    flexShrink: 0,
+    marginVertical: 20,
+    alignSelf: 'center',
+    width: '100%',
   },
   swipeHints: {
     gap: 12,
