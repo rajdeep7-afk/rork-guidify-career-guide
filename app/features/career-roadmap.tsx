@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, BookOpen, Briefcase, CheckCircle2, Clock, ExternalLink, Target } from 'lucide-react-native';
+import { ArrowLeft, BookOpen, BrainCircuit, Briefcase, CheckCircle2, Clock, ExternalLink, Sparkles, Target } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,6 +43,14 @@ interface Course {
   link: string;
 }
 
+interface CareerRecommendation {
+  careerTitle: string;
+  fitExplanation: string;
+  skillsToImprove: string[];
+  jobResponsibilities: string[];
+  relevantFields: string[];
+}
+
 export default function CareerRoadmapScreen() {
   const router = useRouter();
   const { profile } = useProfile();
@@ -50,6 +58,72 @@ export default function CareerRoadmapScreen() {
   const [careerInput, setCareerInput] = useState<string>('');
   const [ncvetQualifications, setNcvetQualifications] = useState<NCVETQualification[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [aiRecommendations, setAiRecommendations] = useState<CareerRecommendation[] | null>(null);
+  const [showAiRecommendations, setShowAiRecommendations] = useState(false);
+
+  const aiRecommendationsMutation = useMutation({
+    mutationFn: async () => {
+      if (!profile) return [];
+
+      const scores = profile.personalityScores;
+      if (!scores) return [];
+
+      const prompt = `You are an expert career counselor AI. Analyze this user's complete profile holistically and provide personalized career recommendations using natural reasoning—NOT predetermined rules or static mapping charts.
+
+### User Profile:
+**Name:** ${profile.name}
+**Academic Level:** ${profile.academicLevel === 'school' ? 'School' : 'College'}
+**Standard/Year:** ${profile.standard || profile.year || profile.course || 'Not specified'}
+**Current Skills:** ${profile.skills?.length > 0 ? profile.skills.join(', ') : 'No specific skills listed yet'}
+
+### Personality Radar Scores (0-100):
+- Creative: ${scores.creative}
+- Analytical: ${scores.analytical}
+- Logical: ${scores.logical}
+- Literacy: ${scores.literacy || 0}
+- Communication: ${scores.communication}
+- Problem Solving: ${scores.problemSolving}
+- Leadership: ${scores.leadership || 0}
+
+### Task:
+Based on this user's personality scores, skills, academic background, and interests, recommend 3-5 career paths that genuinely align with their unique profile. Use AI reasoning to:
+
+1. Interpret their cognitive patterns and behavioral tendencies from the personality scores
+2. Identify careers that leverage their top strengths while offering growth
+3. Consider how their existing skills and academic level fit into career trajectories
+4. Think beyond traditional role definitions—recommend careers based on what they're naturally good at
+
+**Do NOT use any hardcoded mapping rules or predefined trait-to-career charts.** Reason dynamically about each user.
+
+For each recommended career, provide:
+- **Career Title**: The specific job role (2-4 words)
+- **Why You Fit**: A clear, personalized explanation (2-3 sentences) of why this career suits THIS user's unique strengths and profile
+- **Skills to Improve**: 4-6 specific skills they should develop to excel in this role
+- **Job Responsibilities**: 4-6 typical day-to-day responsibilities in this career
+- **Relevant Fields/Specializations**: 3-5 related domains, industries, or specializations they could explore
+
+Return ONLY a valid JSON array with this exact structure:
+[
+  {
+    "careerTitle": "Career Name",
+    "fitExplanation": "Personalized explanation of why this fits the user...",
+    "skillsToImprove": ["skill1", "skill2", "skill3", "skill4"],
+    "jobResponsibilities": ["responsibility1", "responsibility2", "responsibility3", "responsibility4"],
+    "relevantFields": ["field1", "field2", "field3"]
+  }
+]
+
+Return ONLY valid JSON, no other text.`;
+
+      const response = await generateText(prompt);
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return [];
+      return JSON.parse(jsonMatch[0]) as CareerRecommendation[];
+    },
+    onSuccess: (data) => {
+      setAiRecommendations(data);
+    },
+  });
 
   const ncvetMutation = useMutation({
     mutationFn: async (careerGoal: string) => {
@@ -214,9 +288,20 @@ Return ONLY valid JSON, no other text.`;
     setRoadmap(null);
     setNcvetQualifications([]);
     setCourses([]);
+    setShowAiRecommendations(false);
     roadmapMutation.mutate(career);
     ncvetMutation.mutate(career);
     coursesMutation.mutate(career);
+  };
+
+  const handleGetAiRecommendations = () => {
+    if (!profile?.personalityScores) {
+      Alert.alert('Complete Quiz', 'Please complete the personality quiz first to get AI-powered recommendations.');
+      return;
+    }
+    setShowAiRecommendations(true);
+    setAiRecommendations(null);
+    aiRecommendationsMutation.mutate();
   };
 
   return (
@@ -232,6 +317,120 @@ Return ONLY valid JSON, no other text.`;
       </SafeAreaView>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {profile?.personalityScores && (
+          <View style={styles.aiRecommendCard}>
+            <View style={styles.aiRecommendHeader}>
+              <BrainCircuit size={24} color={Colors.secondary} />
+              <Text style={styles.aiRecommendTitle}>AI Career Recommendations</Text>
+            </View>
+            <Text style={styles.aiRecommendSubtitle}>
+              Get personalized career suggestions based on your personality analysis and skills
+            </Text>
+            <Pressable
+              style={[styles.aiRecommendButton, aiRecommendationsMutation.isPending && styles.buttonDisabled]}
+              onPress={handleGetAiRecommendations}
+              disabled={aiRecommendationsMutation.isPending}
+            >
+              <Text style={styles.aiRecommendButtonText}>
+                {aiRecommendationsMutation.isPending ? 'Analyzing...' : 'Get AI Recommendations'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {aiRecommendationsMutation.isPending && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={styles.loadingText}>Analyzing your profile for personalized recommendations...</Text>
+          </View>
+        )}
+
+        {showAiRecommendations && aiRecommendations && aiRecommendations.length > 0 && (
+          <View style={styles.recommendationsContainer}>
+            <View style={styles.recommendationsHeader}>
+              <Sparkles size={28} color={Colors.primary} />
+              <Text style={styles.recommendationsTitle}>Your Personalized Career Matches</Text>
+            </View>
+            <Text style={styles.recommendationsSubtitle}>
+              Based on your unique personality profile and strengths
+            </Text>
+            
+            {aiRecommendations.map((rec, index) => (
+              <View key={index} style={styles.recommendationCard}>
+                <View style={styles.recommendationHeader}>
+                  <View style={styles.recommendationNumber}>
+                    <Text style={styles.recommendationNumberText}>{index + 1}</Text>
+                  </View>
+                  <Text style={styles.recommendationCareerTitle}>{rec.careerTitle}</Text>
+                </View>
+
+                <View style={styles.fitSection}>
+                  <Text style={styles.fitLabel}>Why This Fits You</Text>
+                  <Text style={styles.fitExplanation}>{rec.fitExplanation}</Text>
+                </View>
+
+                {rec.skillsToImprove.length > 0 && (
+                  <View style={styles.recSection}>
+                    <View style={styles.recSectionHeader}>
+                      <Target size={16} color={Colors.primary} />
+                      <Text style={styles.recSectionTitle}>Skills to Develop</Text>
+                    </View>
+                    {rec.skillsToImprove.map((skill, i) => (
+                      <View key={i} style={styles.recListItem}>
+                        <View style={styles.recBullet} />
+                        <Text style={styles.recListItemText}>{skill}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {rec.jobResponsibilities.length > 0 && (
+                  <View style={styles.recSection}>
+                    <View style={styles.recSectionHeader}>
+                      <Briefcase size={16} color={Colors.secondary} />
+                      <Text style={styles.recSectionTitle}>What You&apos;ll Do</Text>
+                    </View>
+                    {rec.jobResponsibilities.map((resp, i) => (
+                      <View key={i} style={styles.recListItem}>
+                        <View style={styles.recBullet} />
+                        <Text style={styles.recListItemText}>{resp}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {rec.relevantFields.length > 0 && (
+                  <View style={styles.recSection}>
+                    <View style={styles.recSectionHeader}>
+                      <BookOpen size={16} color="#8B5CF6" />
+                      <Text style={styles.recSectionTitle}>Related Fields to Explore</Text>
+                    </View>
+                    <View style={styles.fieldsContainer}>
+                      {rec.relevantFields.map((field, i) => (
+                        <View key={i} style={styles.fieldChip}>
+                          <Text style={styles.fieldChipText}>{field}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                <Pressable
+                  style={styles.generateForCareerButton}
+                  onPress={() => {
+                    setCareerInput(rec.careerTitle);
+                    setShowAiRecommendations(false);
+                    handleGenerate();
+                  }}
+                >
+                  <Text style={styles.generateForCareerButtonText}>Generate Roadmap for {rec.careerTitle}</Text>
+                  <ArrowLeft size={16} color={Colors.white} style={{ transform: [{ rotate: '180deg' }] }} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.inputCard}>
           <Text style={styles.inputTitle}>Generate Career Roadmap</Text>
           <Text style={styles.inputSubtitle}>
@@ -847,5 +1046,180 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.primary,
+  },
+  aiRecommendCard: {
+    backgroundColor: Colors.secondary + '15',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: Colors.secondary,
+  },
+  aiRecommendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  aiRecommendTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: Colors.text,
+  },
+  aiRecommendSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  aiRecommendButton: {
+    backgroundColor: Colors.secondary,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  aiRecommendButtonText: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.white,
+  },
+  recommendationsContainer: {
+    marginBottom: 32,
+  },
+  recommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 12,
+  },
+  recommendationsTitle: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    flex: 1,
+  },
+  recommendationsSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  recommendationCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  recommendationNumber: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recommendationNumberText: {
+    fontSize: 16,
+    fontWeight: '800' as const,
+    color: Colors.white,
+  },
+  recommendationCareerTitle: {
+    fontSize: 22,
+    fontWeight: '800' as const,
+    color: Colors.text,
+    flex: 1,
+  },
+  fitSection: {
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  fitLabel: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: Colors.primary,
+    marginBottom: 8,
+    textTransform: 'uppercase' as const,
+  },
+  fitExplanation: {
+    fontSize: 15,
+    color: Colors.text,
+    lineHeight: 22,
+  },
+  recSection: {
+    marginBottom: 20,
+  },
+  recSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  recSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.text,
+  },
+  recListItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  recBullet: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: Colors.primary,
+    marginTop: 7,
+    marginRight: 10,
+  },
+  recListItemText: {
+    fontSize: 14,
+    color: Colors.text,
+    flex: 1,
+    lineHeight: 20,
+  },
+  fieldsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  fieldChip: {
+    backgroundColor: Colors.background,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  fieldChipText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  generateForCareerButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  generateForCareerButtonText: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.white,
   },
 });

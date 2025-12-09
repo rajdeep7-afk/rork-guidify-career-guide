@@ -39,24 +39,34 @@ export default function QuizResultsScreen() {
     mutationFn: async () => {
       if (!user || !scores) return '';
 
-      const prompt = `Based on the following personality analysis scores, recommend ONE career title (2-3 words maximum) that best matches the person's strengths.
+      const prompt = `You are a career counselor AI tasked with providing a personalized career recommendation based on a holistic analysis of the user's profile.
 
-Personality Scores:
-- Creative: ${scores.creative}/100
-- Analytical: ${scores.analytical}/100
-- Logical: ${scores.logical}/100
-- Literacy: ${scores.literacy || 0}/100
-- Communication: ${scores.communication}/100
-- Problem Solving: ${scores.problemSolving}/100
+### User Profile:
+**Name:** ${user.name}
+**Academic Level:** ${user.academicLevel === 'school' ? 'School' : 'College'}
+**Standard/Year:** ${user.standard || user.year || user.course || 'Not specified'}
+**Current Skills:** ${user.skills?.length > 0 ? user.skills.join(', ') : 'No specific skills listed yet'}
 
-Career Mapping Guidelines:
-- High Creative + Communication → Marketing Manager, Content Creator, Brand Designer
-- High Analytical + Logical + Problem Solving → Software Engineer, Data Scientist, AI Engineer
-- High Literacy + Communication → Writer, Journalist, Teacher
-- High Analytical + Literacy → Research Analyst, Business Analyst
-- High Creative + Problem Solving → Product Designer, Architect
+### Personality Analysis Scores (0-100):
+- Creative: ${scores.creative}
+- Analytical: ${scores.analytical}
+- Logical: ${scores.logical}
+- Literacy: ${scores.literacy || 0}
+- Communication: ${scores.communication}
+- Problem Solving: ${scores.problemSolving}
+- Leadership: ${scores.leadership || 0}
 
-Analyze the highest scoring traits and recommend the most suitable career. Return ONLY the career title (2-3 words), nothing else.`;
+### Task:
+Analyze this user's complete profile—their personality radar scores, existing skills, academic background, and potential interests. Do NOT use any predetermined mapping charts or rule-based logic. Instead, use natural reasoning to infer:
+
+1. What cognitive patterns emerge from their personality scores?
+2. What career domains align naturally with their strengths?
+3. How do their current skills complement or indicate future directions?
+4. What roles would leverage their top abilities while offering growth?
+
+Based on your holistic analysis, recommend ONE career title (2-4 words maximum) that genuinely fits this user's unique profile.
+
+Return ONLY the career title, nothing else.`;
 
       const response = await generateText(prompt);
       return response.trim();
